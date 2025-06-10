@@ -1,0 +1,126 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --primary-color: #00af93;
+  --accent-color: #f97316;
+}
+
+body {
+  font-family: 'Inter', sans-serif;
+  @apply text-gray-800 bg-gray-50;
+}
+
+@layer components {
+  .btn {
+    @apply px-4 py-2 rounded-md font-medium transition duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2;
+  }
+  
+  .btn-primary {
+    @apply bg-primary-500 text-white hover:bg-primary-600 focus:ring-primary-500;
+  }
+  
+  .btn-secondary {
+    @apply bg-white text-primary-500 border border-primary-500 hover:bg-primary-50 focus:ring-primary-500;
+  }
+  
+  .btn-accent {
+    @apply bg-accent-500 text-white hover:bg-accent-600 focus:ring-accent-500;
+  }
+
+  .input-field {
+    @apply w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent;
+  }
+
+  .card {
+    @apply bg-white rounded-lg shadow-card p-6;
+  }
+  
+  .section-title {
+    @apply text-2xl font-bold text-gray-800 mb-4;
+  }
+}
+
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+
+.calendar-day {
+  @apply flex items-center justify-center w-10 h-10 rounded-full cursor-pointer transition-colors;
+}
+
+.calendar-day:hover {
+  @apply bg-primary-100;
+}
+
+.calendar-day.selected {
+  @apply bg-primary-500 text-white;
+}
+
+.calendar-day.other-month {
+  @apply text-gray-400;
+}
+
+.slot-button {
+  @apply flex items-center justify-center px-4 py-2 border rounded-md transition-colors;
+}
+
+.slot-button.available {
+  @apply border-green-500 bg-green-50 text-green-700 hover:bg-green-100;
+}
+
+.slot-button.selected {
+  @apply border-blue-500 bg-blue-500 text-white;
+}
+
+.slot-button.unavailable {
+  @apply border-gray-300 bg-gray-100 text-gray-400 cursor-not-allowed;
+}
+
+.parking-card {
+  @apply bg-white rounded-lg shadow-card overflow-hidden transition-transform hover:shadow-lg;
+}
+
+.parking-card:hover {
+  @apply transform translate-y-[-4px];
+}
+
+.modal-overlay {
+  @apply fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50;
+}
+
+.modal-content {
+  @apply bg-white rounded-lg shadow-modal max-h-[90vh] overflow-y-auto w-full max-w-md md:max-w-lg lg:max-w-xl;
+}
+
+/* Animation classes */
+.fade-in {
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+.slide-up {
+  animation: slideUp 0.3s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
