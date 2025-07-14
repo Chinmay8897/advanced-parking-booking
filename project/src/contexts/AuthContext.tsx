@@ -1,20 +1,15 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { User, Session } from '@supabase/supabase-js';
+import { supabase } from '../lib/supabase';
 
 // Define types
-type User = {
-  id: string;
-  name: string;
-  email: string;
-};
-
 type AuthContextType = {
   user: User | null;
-  isAuthenticated: boolean;
-  login: (email: string, password: string) => Promise<void>;
-  register: (name: string, email: string, password: string) => Promise<void>;
-  logout: () => void;
-  isLoading: boolean;
-  error: string | null;
+  session: Session | null;
+  signUp: (email: string, password: string) => Promise<{ error: any }>;
+  signIn: (email: string, password: string) => Promise<{ error: any }>;
+  signOut: () => Promise<void>;
+  loading: boolean;
 };
 
 // Create context
@@ -23,94 +18,120 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 // Create provider component
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  // Check for saved user on component mount
   useEffect(() => {
-    const savedUser = localStorage.getItem('parkease_user');
-    if (savedUser) {
-      setUser(JSON.parse(savedUser));
-    }
-    setIsLoading(false);
+    // Get initial session
+    const initializeAuth = async () => {
+      try {
+        const { data: { session: currentSession } } = await supabase.auth.getSession();
+        console.log('Initial session:', currentSession);
+        setSession(currentSession);
+        setUser(currentSession?.user ?? null);
+      } catch (error) {
+        console.error('Error getting session:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    initializeAuth();
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, currentSession) => {
+      console.log('Auth state changed:', event, currentSession);
+      setSession(currentSession);
+      setUser(currentSession?.user ?? null);
+      setLoading(false);
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
-  // Login function
-  const login = async (email: string, password: string) => {
-    setIsLoading(true);
-    setError(null);
-
+  const signUp = async (email: string, password: string) => {
     try {
-      // In a real app, this would be an API call
-      if (!email.trim() || !password.trim()) {
-        throw new Error('Email and password are required');
+      // Sign up with email and password
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
+          data: {
+            email_confirmed: true // Add this to bypass email verification
+          }
+        }
+      });
+
+      if (error) throw error;
+
+      // Immediately sign in after successful registration
+      if (data.user) {
+        const { error: signInError } = await supabase.auth.signInWithPassword({
+          email,
+          password
+        });
+        if (signInError) throw signInError;
       }
 
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
-      // For demo purposes, accept any non-empty email and password
-      // In a real app, this would validate against a backend
-      const userData: User = {
-        id: Math.random().toString(36).substr(2, 9),
-        name: email.split('@')[0], // Use the part before @ as the name
-        email
-      };
-
-      localStorage.setItem('parkease_user', JSON.stringify(userData));
-      setUser(userData);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
-    } finally {
-      setIsLoading(false);
+      return { error: null };
+    } catch (error) {
+      console.error('Error during sign up:', error);
+      return { error };
     }
   };
 
-  // Register function
-  const register = async (name: string, email: string, password: string) => {
-    setIsLoading(true);
-    setError(null);
-
+  const signIn = async (email: string, password: string) => {
     try {
-      // Validation
-      if (!name.trim() || !email.trim() || !password.trim()) {
-        throw new Error('All fields are required');
+      console.log('Attempting to sign in...');
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      });
+
+      if (error) {
+        console.error('Sign in error:', error);
+        throw error;
       }
 
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      console.log('Sign in successful:', data);
+      // Explicitly set the session and user
+      setSession(data.session);
+      setUser(data.user);
 
-      // Mock registration
-      const userData: User = {
-        id: Math.random().toString(36).substr(2, 9),
-        name,
-        email
-      };
-
-      localStorage.setItem('parkease_user', JSON.stringify(userData));
-      setUser(userData);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
-    } finally {
-      setIsLoading(false);
+      return { error: null };
+    } catch (error) {
+      console.error('Error during sign in:', error);
+      return { error };
     }
   };
 
-  // Logout function
-  const logout = () => {
-    localStorage.removeItem('parkease_user');
-    setUser(null);
+  const signOut = async () => {
+    try {
+      await supabase.auth.signOut();
+      // Explicitly clear the session and user
+      setSession(null);
+      setUser(null);
+    } catch (error) {
+      console.error('Error during sign out:', error);
+    }
   };
+
+  // Debug logging for auth state changes
+  useEffect(() => {
+    console.log('Auth state updated:', { user, session, loading });
+  }, [user, session, loading]);
 
   // Context value
   const value = {
     user,
-    isAuthenticated: !!user,
-    login,
-    register,
-    logout,
-    isLoading,
-    error
+    session,
+    signUp,
+    signIn,
+    signOut,
+    loading,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

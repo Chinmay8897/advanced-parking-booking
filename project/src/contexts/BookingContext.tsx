@@ -1,25 +1,27 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { format } from 'date-fns';
+import { supabase } from '../lib/supabase';
+import { useAuth } from './AuthContext';
 
 // Define types
 export type Booking = {
   id: string;
-  userId: string;
-  parkingSpotId: string;
-  parkingSpotName: string;
+  user_id: string;
+  parking_spot_id: string;
+  parking_spot_name: string;
   date: string;
-  fromTime: string;
-  toTime: string;
+  from_time: string;
+  to_time: string;
   status: 'confirmed' | 'cancelled';
-  createdAt: string;
+  created_at: string;
   price: number;
 };
 
 type BookingContextType = {
   bookings: Booking[];
-  addBooking: (booking: Omit<Booking, 'id' | 'createdAt'>) => void;
-  cancelBooking: (bookingId: string) => void;
-  getUserBookings: (userId: string) => Booking[];
+  addBooking: (booking: Omit<Booking, 'id' | 'created_at'>) => Promise<{ error: any }>;
+  cancelBooking: (bookingId: string) => Promise<{ error: any }>;
+  getUserBookings: () => Promise<{ data: Booking[] | null; error: any }>;
+  loading: boolean;
 };
 
 // Create context
@@ -28,41 +30,80 @@ const BookingContext = createContext<BookingContextType | undefined>(undefined);
 // Create provider component
 export const BookingProvider = ({ children }: { children: ReactNode }) => {
   const [bookings, setBookings] = useState<Booking[]>([]);
+  const [loading, setLoading] = useState(true);
+  const { user } = useAuth();
 
-  // Load bookings from localStorage on mount
+  // Fetch user's bookings when user changes
   useEffect(() => {
-    const savedBookings = localStorage.getItem('parkease_bookings');
-    if (savedBookings) {
-      setBookings(JSON.parse(savedBookings));
+    if (user) {
+      getUserBookings();
+    } else {
+      setBookings([]);
+      setLoading(false);
     }
-  }, []);
+  }, [user]);
 
-  // Save bookings to localStorage whenever they change
-  useEffect(() => {
-    localStorage.setItem('parkease_bookings', JSON.stringify(bookings));
-  }, [bookings]);
+  const getUserBookings = async () => {
+    if (!user) return { data: null, error: new Error('No user logged in') };
 
-  const addBooking = (bookingData: Omit<Booking, 'id' | 'createdAt'>) => {
-    const newBooking: Booking = {
-      ...bookingData,
-      id: Math.random().toString(36).substr(2, 9),
-      createdAt: new Date().toISOString()
-    };
-    setBookings(prev => [...prev, newBooking]);
+    try {
+      const { data, error } = await supabase
+        .from('bookings')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      setBookings(data || []);
+      return { data, error: null };
+    } catch (error) {
+      console.error('Error fetching bookings:', error);
+      return { data: null, error };
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const cancelBooking = (bookingId: string) => {
-    setBookings(prev =>
-      prev.map(booking =>
-        booking.id === bookingId
-          ? { ...booking, status: 'cancelled' }
-          : booking
-      )
-    );
+  const addBooking = async (bookingData: Omit<Booking, 'id' | 'created_at'>) => {
+    try {
+      const { data, error } = await supabase
+        .from('bookings')
+        .insert([bookingData])
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      setBookings(prev => [data, ...prev]);
+      return { error: null };
+    } catch (error) {
+      console.error('Error adding booking:', error);
+      return { error };
+    }
   };
 
-  const getUserBookings = (userId: string) => {
-    return bookings.filter(booking => booking.userId === userId);
+  const cancelBooking = async (bookingId: string) => {
+    try {
+      const { error } = await supabase
+        .from('bookings')
+        .update({ status: 'cancelled' })
+        .eq('id', bookingId);
+
+      if (error) throw error;
+
+      setBookings(prev =>
+        prev.map(booking =>
+          booking.id === bookingId
+            ? { ...booking, status: 'cancelled' }
+            : booking
+        )
+      );
+      return { error: null };
+    } catch (error) {
+      console.error('Error cancelling booking:', error);
+      return { error };
+    }
   };
 
   const value = {
@@ -70,6 +111,7 @@ export const BookingProvider = ({ children }: { children: ReactNode }) => {
     addBooking,
     cancelBooking,
     getUserBookings,
+    loading,
   };
 
   return <BookingContext.Provider value={value}>{children}</BookingContext.Provider>;

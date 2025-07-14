@@ -67,7 +67,7 @@ const HomePage = () => {
           {/* Right Image */}
           <div className="md:w-1/2">
             <img
-              src="https://images.pexels.com/photos/2996278/pexels-photo-2996278.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2"
+              src="https://images.unsplash.com/photo-1506521781263-d8422e82f27a?w=600&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MXx8cGFya2luZ3xlbnwwfHwwfHx8MA%3D%3D"
               alt="Parking garage"
               className="rounded-lg shadow-xl w-full object-cover h-[400px]"
             />
@@ -275,7 +275,7 @@ const HomePage = () => {
               </div>
               <div className="md:w-1/2">
                 <img
-                  src="https://images.pexels.com/photos/3785927/pexels-photo-3785927.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2"
+                  src="https://images.unsplash.com/photo-1575486306207-78ebfe3ff8da?w=600&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8NDJ8fHBhcmtpbmclMjBzZWFyY2h8ZW58MHwwfDB8fHww"
                   alt="Search for parking"
                   className="rounded-lg shadow-md"
                 />
@@ -292,7 +292,7 @@ const HomePage = () => {
               </div>
               <div className="md:w-1/2">
                 <img
-                  src="https://images.pexels.com/photos/2996278/pexels-photo-2996278.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2"
+                  src="https://images.unsplash.com/photo-1678414413532-1ca42d6a510b?w=600&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTd8fHBhcmtpbmclMjBib29raW5nfGVufDB8MXwwfHx8MA%3D%3D"
                   alt="Book a spot"
                   className="rounded-lg shadow-md"
                 />
@@ -309,7 +309,7 @@ const HomePage = () => {
               </div>
               <div className="md:w-1/2">
                 <img
-                  src="https://images.pexels.com/photos/7879748/pexels-photo-7879748.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2"
+                  src="https://images.unsplash.com/photo-1709364531162-6e613646afa8?w=600&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8OHx8ZWFzeSUyMHBhcmtpbmd8ZW58MHwwfDB8fHww"
                   alt="Park your car"
                   className="rounded-lg shadow-md"
                 />

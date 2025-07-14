@@ -3,10 +3,14 @@ import { format } from 'date-fns';
 import { Calendar, Clock, MapPin, Filter } from 'lucide-react';
 import { mockParkingLocations } from '../services/mockData';
 import BookingModal from '../components/BookingModal';
+import { useAuth } from '../contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
 
 type FilterOption = 'all' | 'indoor' | 'outdoor' | 'ev-charging' | 'security' | 'covered';
 
 const FindParkingPage = () => {
+  const { user, loading: authLoading } = useAuth();
+  const navigate = useNavigate();
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [fromTime, setFromTime] = useState('10:00 AM');
   const [toTime, setToTime] = useState('11:00 AM');
@@ -15,6 +19,31 @@ const FindParkingPage = () => {
   const [showCalendar, setShowCalendar] = useState(false);
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  
+  useEffect(() => {
+    // Check authentication status
+    if (!authLoading && !user) {
+      navigate('/login');
+      return;
+    }
+
+    // Load parking locations
+    const loadParkingLocations = async () => {
+      try {
+        setIsLoading(true);
+        // TODO: Replace with actual Supabase query
+        // For now, using mock data
+        setLocations(mockParkingLocations);
+      } catch (error) {
+        console.error('Error loading parking locations:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadParkingLocations();
+  }, [user, authLoading, navigate]);
   
   // Filter locations based on selected filter
   useEffect(() => {
@@ -33,9 +62,24 @@ const FindParkingPage = () => {
   }, [activeFilter]);
   
   const handleBooking = (location: any) => {
+    if (!user) {
+      navigate('/login');
+      return;
+    }
     setSelectedLocation(location);
     setIsBookingModalOpen(true);
   };
+
+  if (authLoading || isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading parking locations...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-gray-50 min-h-screen">
@@ -50,7 +94,7 @@ const FindParkingPage = () => {
           </div>
           <div className="md:w-1/2">
             <img 
-              src="https://images.pexels.com/photos/3785927/pexels-photo-3785927.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2" 
+              src="https://images.unsplash.com/photo-1575486306207-78ebfe3ff8da?w=600&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8NDJ8fHBhcmtpbmclMjBzZWFyY2h8ZW58MHwwfDB8fHww" 
               alt="Parking garage" 
               className="rounded-lg shadow-md w-full h-48 object-cover"
             />

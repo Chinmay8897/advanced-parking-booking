@@ -1,23 +1,26 @@
-import { useState, FormEvent } from 'react';
+import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 
 const RegisterPage = () => {
   const navigate = useNavigate();
-  const { register, isLoading, error } = useAuth();
+  const { signUp } = useAuth();
   
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [passwordError, setPasswordError] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
   
-  const handleSubmit = async (e: FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Reset error
+    // Reset errors
     setPasswordError('');
+    setError(null);
     
     // Validate password match
     if (password !== confirmPassword) {
@@ -25,11 +28,17 @@ const RegisterPage = () => {
       return;
     }
     
+    setLoading(true);
     try {
-      await register(name, email, password);
+      const { error: signUpError } = await signUp(email, password);
+      if (signUpError) throw signUpError;
+      
+      // If registration is successful, navigate to home page
       navigate('/');
     } catch (err) {
-      // Error is handled by the auth context
+      setError(err instanceof Error ? err.message : 'An error occurred during registration');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -115,10 +124,10 @@ const RegisterPage = () => {
           <div>
             <button
               type="submit"
-              disabled={isLoading}
+              disabled={loading}
               className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-primary-500 hover:bg-primary-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-400 disabled:bg-primary-300"
             >
-              {isLoading ? <LoadingSpinner size="small" color="white" /> : 'Create account'}
+              {loading ? <LoadingSpinner size="small" color="white" /> : 'Create account'}
             </button>
           </div>
           

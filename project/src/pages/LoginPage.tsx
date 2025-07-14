@@ -1,24 +1,44 @@
-import { useState, FormEvent } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useState } from 'react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 
 const LoginPage = () => {
   const navigate = useNavigate();
-  const { login, isLoading, error } = useAuth();
-  
+  const location = useLocation();
+  const { signIn } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [rememberMe, setRememberMe] = useState(false);
-  
-  const handleSubmit = async (e: FormEvent) => {
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [successMessage, setSuccessMessage] = useState<string | null>(
+    location.state?.message || null
+  );
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+    setError(null);
+    setLoading(true);
+
     try {
-      await login(email, password);
+      console.log('Attempting to sign in with:', { email });
+      const { error } = await signIn(email, password);
+      
+      if (error) {
+        console.error('Sign in error:', error);
+        throw error;
+      }
+      
+      console.log('Sign in successful, navigating to home');
       navigate('/');
-    } catch (err) {
-      // Error is handled by the auth context
+    } catch (err: any) {
+      console.error('Login error:', err);
+      setError(
+        err.message || 
+        'Failed to sign in. Please check your credentials and try again.'
+      );
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -41,12 +61,18 @@ const LoginPage = () => {
           </div>
         )}
         
+        {successMessage && (
+          <div className="bg-green-50 border border-green-400 text-green-700 px-4 py-3 rounded relative" role="alert">
+            <span className="block sm:inline">{successMessage}</span>
+          </div>
+        )}
+        
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
           <div className="rounded-md shadow-sm -space-y-px">
             <div>
-              <label htmlFor="email-address" className="sr-only">Email address</label>
+              <label htmlFor="email" className="sr-only">Email address</label>
               <input
-                id="email-address"
+                id="email"
                 name="email"
                 type="email"
                 autoComplete="email"
@@ -80,8 +106,6 @@ const LoginPage = () => {
                 name="remember-me"
                 type="checkbox"
                 className="h-4 w-4 text-primary-500 focus:ring-primary-400 border-gray-300 rounded"
-                checked={rememberMe}
-                onChange={(e) => setRememberMe(e.target.checked)}
               />
               <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-900">
                 Remember me
@@ -98,10 +122,12 @@ const LoginPage = () => {
           <div>
             <button
               type="submit"
-              disabled={isLoading}
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-primary-500 hover:bg-primary-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-400 disabled:bg-primary-300"
+              disabled={loading}
+              className={`group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white ${
+                loading ? 'bg-primary-400' : 'bg-primary-600 hover:bg-primary-700'
+              } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500`}
             >
-              {isLoading ? <LoadingSpinner size="small" color="white" /> : 'Sign in'}
+              {loading ? <LoadingSpinner size="small" color="white" /> : 'Sign in'}
             </button>
           </div>
           
