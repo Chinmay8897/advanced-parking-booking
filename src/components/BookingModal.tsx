@@ -25,37 +25,43 @@ const BookingModal = ({ isOpen, onClose, location, date, fromTime, toTime }: Boo
   const { addBooking } = useBookings();
   const [selectedSlot, setSelectedSlot] = useState<string>(location.selectedSlot || '');
   const [bookingStep, setBookingStep] = useState<BookingStep>(BookingStep.SlotSelection);
-  
+
   if (!isOpen) return null;
-  
+
   const handleSlotSelect = (slotName: string) => {
     setSelectedSlot(slotName);
   };
-  
-  const confirmBooking = () => {
+
+  const confirmBooking = async () => {
     if (!selectedSlot || !user) return;
-    
-    // Create the booking
-    addBooking({
-      userId: user.id,
-      parkingSpotId: selectedSlot,
-      parkingSpotName: location.name,
-      date: date.toISOString(),
-      fromTime,
-      toTime,
-      status: 'confirmed',
-      price: location.price
-    });
-    
-    setBookingStep(BookingStep.Confirmation);
+
+    try {
+      // Create the booking
+      const { error } = await addBooking({
+        parking_slot_id: selectedSlot,
+        parking_slot_name: location.name,
+        start_time: `${format(date, 'yyyy-MM-dd')}T${fromTime}`,
+        end_time: `${format(date, 'yyyy-MM-dd')}T${toTime}`,
+        total_amount: parseFloat(calculateAmount())
+      });
+
+      if (error) {
+        console.error('Error creating booking:', error);
+        return;
+      }
+
+      setBookingStep(BookingStep.Confirmation);
+    } catch (error) {
+      console.error('Error creating booking:', error);
+    }
   };
-  
+
   // Calculate booking duration and amount
   const calculateHours = () => {
     // This is a simplified implementation
     return 1; // For demo, assuming 1 hour
   };
-  
+
   const calculateAmount = () => {
     return (calculateHours() * location.price).toFixed(2);
   };
@@ -64,13 +70,13 @@ const BookingModal = ({ isOpen, onClose, location, date, fromTime, toTime }: Boo
     onClose();
     navigate('/my-bookings');
   };
-  
+
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
       <div className="flex items-center justify-center min-h-screen">
         {/* Backdrop */}
         <div className="fixed inset-0 bg-black bg-opacity-50 transition-opacity" onClick={onClose}></div>
-        
+
         {/* Modal */}
         <div className="relative bg-white rounded-lg shadow-modal max-h-[90vh] overflow-y-auto w-full max-w-md md:max-w-lg z-10 slide-up">
           {/* Close Button */}
@@ -80,7 +86,7 @@ const BookingModal = ({ isOpen, onClose, location, date, fromTime, toTime }: Boo
           >
             <X size={24} />
           </button>
-          
+
           {/* Modal Header */}
           <div className="px-6 py-4 border-b border-gray-200">
             <h2 className="text-xl font-semibold text-gray-800">{location.name}</h2>
@@ -89,13 +95,13 @@ const BookingModal = ({ isOpen, onClose, location, date, fromTime, toTime }: Boo
               <span>{location.address}</span>
             </div>
           </div>
-          
+
           {/* Modal Content - Step 1: Slot Selection */}
           {bookingStep === BookingStep.SlotSelection && (
             <div className="p-6">
               <div className="mb-6">
                 <h3 className="text-lg font-medium mb-3">Select a Parking Slot</h3>
-                
+
                 <div className="bg-gray-50 rounded-lg p-4 mb-4">
                   <div className="flex flex-col md:flex-row md:justify-between mb-3">
                     <div className="flex items-center mb-2 md:mb-0">
@@ -107,13 +113,13 @@ const BookingModal = ({ isOpen, onClose, location, date, fromTime, toTime }: Boo
                       <span>{fromTime} - {toTime}</span>
                     </div>
                   </div>
-                  
+
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                     {location.slots.map((slot: any, i: number) => (
-                      <button 
-                        key={i} 
+                      <button
+                        key={i}
                         className={`slot-button ${
-                          slot.status === 'unavailable' ? 'unavailable' : 
+                          slot.status === 'unavailable' ? 'unavailable' :
                           selectedSlot === slot.name ? 'selected' : 'available'
                         }`}
                         disabled={slot.status === 'unavailable'}
@@ -123,7 +129,7 @@ const BookingModal = ({ isOpen, onClose, location, date, fromTime, toTime }: Boo
                       </button>
                     ))}
                   </div>
-                  
+
                   <div className="flex items-center justify-center mt-3 space-x-4">
                     <div className="flex items-center">
                       <div className="w-3 h-3 rounded-full bg-green-500 mr-1"></div>
@@ -139,7 +145,7 @@ const BookingModal = ({ isOpen, onClose, location, date, fromTime, toTime }: Boo
                     </div>
                   </div>
                 </div>
-                
+
                 <div className="bg-gray-50 rounded-lg p-4">
                   <h3 className="text-lg font-medium mb-2">Booking Summary</h3>
                   <div className="space-y-2 text-sm">
@@ -172,8 +178,8 @@ const BookingModal = ({ isOpen, onClose, location, date, fromTime, toTime }: Boo
                   </div>
                 </div>
               </div>
-              
-              <button 
+
+              <button
                 className="btn btn-primary w-full"
                 disabled={!selectedSlot}
                 onClick={confirmBooking}
@@ -182,7 +188,7 @@ const BookingModal = ({ isOpen, onClose, location, date, fromTime, toTime }: Boo
               </button>
             </div>
           )}
-          
+
           {/* Modal Content - Step 2: Confirmation */}
           {bookingStep === BookingStep.Confirmation && (
             <div className="p-6 text-center">
@@ -192,12 +198,12 @@ const BookingModal = ({ isOpen, onClose, location, date, fromTime, toTime }: Boo
                     <CheckCircle size={64} className="text-green-500" />
                   </div>
                 </div>
-                
+
                 <h3 className="text-xl font-bold text-green-600 mb-2">Booking Confirmed!</h3>
                 <p className="text-gray-600 mb-6">
                   Your parking spot has been successfully booked. A confirmation has been sent to your email.
                 </p>
-                
+
                 <div className="bg-gray-50 rounded-lg p-4 mb-6 text-left">
                   <h4 className="font-medium mb-3">Booking Details</h4>
                   <div className="space-y-3">
@@ -236,15 +242,15 @@ const BookingModal = ({ isOpen, onClose, location, date, fromTime, toTime }: Boo
                     </div>
                   </div>
                 </div>
-                
+
                 <div className="flex flex-col space-y-3">
-                  <button 
+                  <button
                     className="btn btn-primary"
                     onClick={onClose}
                   >
                     Done
                   </button>
-                  <button 
+                  <button
                     className="btn btn-secondary"
                     onClick={handleViewBookings}
                   >

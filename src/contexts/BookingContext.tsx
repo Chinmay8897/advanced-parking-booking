@@ -6,19 +6,18 @@ import { useAuth } from './AuthContext';
 export type Booking = {
   id: string;
   user_id: string;
-  parking_spot_id: string;
-  parking_spot_name: string;
-  date: string;
-  from_time: string;
-  to_time: string;
-  status: 'confirmed' | 'cancelled';
+  parking_slot_id: string;
+  parking_slot_name: string;
+  start_time: string;
+  end_time: string;
+  total_amount: number;
+  status: 'pending' | 'confirmed' | 'cancelled' | 'completed';
   created_at: string;
-  price: number;
 };
 
 type BookingContextType = {
   bookings: Booking[];
-  addBooking: (booking: Omit<Booking, 'id' | 'created_at'>) => Promise<{ error: any }>;
+  addBooking: (booking: Omit<Booking, 'id' | 'created_at' | 'user_id'>) => Promise<{ error: any }>;
   cancelBooking: (bookingId: string) => Promise<{ error: any }>;
   getUserBookings: () => Promise<{ data: Booking[] | null; error: any }>;
   loading: boolean;
@@ -44,19 +43,43 @@ export const BookingProvider = ({ children }: { children: ReactNode }) => {
   }, [user]);
 
   const getUserBookings = async () => {
-    if (!user) return { data: null, error: new Error('No user logged in') };
+    if (!user) {
+      return { data: null, error: new Error('User not authenticated') };
+    }
 
     try {
+      setLoading(true);
       const { data, error } = await supabase
         .from('bookings')
-        .select('*')
+        .select(`
+          *,
+          parking_slots (
+            slot_number,
+            location
+          )
+        `)
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching bookings:', error);
+        return { data: null, error };
+      }
 
-      setBookings(data || []);
-      return { data, error: null };
+      const formattedBookings: Booking[] = data?.map(booking => ({
+        id: booking.id,
+        user_id: booking.user_id,
+        parking_slot_id: booking.parking_slot_id,
+        parking_slot_name: `${booking.parking_slots.slot_number} - ${booking.parking_slots.location}`,
+        start_time: booking.start_time,
+        end_time: booking.end_time,
+        total_amount: booking.total_amount,
+        status: booking.status,
+        created_at: booking.created_at,
+      })) || [];
+
+      setBookings(formattedBookings);
+      return { data: formattedBookings, error: null };
     } catch (error) {
       console.error('Error fetching bookings:', error);
       return { data: null, error };
@@ -65,40 +88,60 @@ export const BookingProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const addBooking = async (bookingData: Omit<Booking, 'id' | 'created_at'>) => {
+  const addBooking = async (bookingData: Omit<Booking, 'id' | 'created_at' | 'user_id'>) => {
+    if (!user) {
+      return { error: new Error('User must be authenticated to make a booking') };
+    }
+
     try {
       const { data, error } = await supabase
         .from('bookings')
-        .insert([bookingData])
+        .insert([
+          {
+            user_id: user.id,
+            parking_slot_id: bookingData.parking_slot_id,
+            start_time: bookingData.start_time,
+            end_time: bookingData.end_time,
+            total_amount: bookingData.total_amount,
+            status: 'pending',
+          },
+        ])
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error creating booking:', error);
+        return { error };
+      }
 
-      setBookings(prev => [data, ...prev]);
+      // Refresh bookings list
+      await getUserBookings();
       return { error: null };
     } catch (error) {
-      console.error('Error adding booking:', error);
+      console.error('Error creating booking:', error);
       return { error };
     }
   };
 
   const cancelBooking = async (bookingId: string) => {
+    if (!user) {
+      return { error: new Error('User must be authenticated to cancel a booking') };
+    }
+
     try {
       const { error } = await supabase
         .from('bookings')
         .update({ status: 'cancelled' })
-        .eq('id', bookingId);
+        .eq('id', bookingId)
+        .eq('user_id', user.id);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error cancelling booking:', error);
+        return { error };
+      }
 
-      setBookings(prev =>
-        prev.map(booking =>
-          booking.id === bookingId
-            ? { ...booking, status: 'cancelled' }
-            : booking
-        )
-      );
+      // Refresh bookings list
+      await getUserBookings();
       return { error: null };
     } catch (error) {
       console.error('Error cancelling booking:', error);
@@ -124,4 +167,4 @@ export const useBookings = () => {
     throw new Error('useBookings must be used within a BookingProvider');
   }
   return context;
-}; 
+};

@@ -5,7 +5,7 @@ import LoadingSpinner from '../components/ui/LoadingSpinner';
 
 const RegisterPage = () => {
   const navigate = useNavigate();
-  const { signUp } = useAuth();
+  const { register } = useAuth();
   
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -30,7 +30,7 @@ const RegisterPage = () => {
     
     setLoading(true);
     try {
-      const { error: signUpError } = await signUp(email, password);
+      const { error: signUpError } = await register(name, email, password);
       if (signUpError) throw signUpError;
       
       // If registration is successful, navigate to home page

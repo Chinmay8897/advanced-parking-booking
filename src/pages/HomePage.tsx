@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Calendar, Clock } from 'lucide-react';
 import { format, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isToday, isSameDay } from 'date-fns';
@@ -6,13 +6,13 @@ import { useAuth } from '../contexts/AuthContext';
 
 const HomePage = () => {
   const navigate = useNavigate();
-  const { isAuthenticated, user } = useAuth();
+  const { user, loading } = useAuth();
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [currentMonth, setCurrentMonth] = useState<Date>(new Date());
   const [showCalendar, setShowCalendar] = useState(false);
 
   const handleDateSearch = () => {
-    if (isAuthenticated) {
+    if (user) {
       navigate('/find-parking');
     } else {
       navigate('/login');
@@ -40,6 +40,17 @@ const HomePage = () => {
   // Get the first day of the month to calculate padding
   const firstDayOfMonth = startOfMonth(currentMonth).getDay();
 
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div>
       {/* Hero Section */}
@@ -48,14 +59,14 @@ const HomePage = () => {
           {/* Left Content */}
           <div className="md:w-1/2 mb-10 md:mb-0 md:pr-8">
             <h1 className="text-4xl md:text-5xl font-bold mb-4 text-gray-900 leading-tight">
-              {isAuthenticated ? `Welcome back, ${user?.name}!` : 'Find and Reserve Parking Spots in Real-Time'}
+              {user ? `Welcome back, ${user.name || user.email}!` : 'Find and Reserve Parking Spots in Real-Time'}
             </h1>
             <p className="text-xl text-gray-700 mb-8">
               Say goodbye to parking hassles. Book secure parking spaces in advance and
               enjoy stress-free parking experience.
             </p>
             <div className="flex flex-col sm:flex-row gap-4">
-              <Link to={isAuthenticated ? "/find-parking" : "/login"} className="btn btn-primary text-center px-8 py-3">
+              <Link to={user ? "/find-parking" : "/login"} className="btn btn-primary text-center px-8 py-3">
                 Find Parking Now
               </Link>
               <Link to="/contact" className="btn btn-secondary text-center px-8 py-3">
@@ -327,10 +338,10 @@ const HomePage = () => {
             Join thousands of users who have simplified their parking experience with ParkEase.
           </p>
           <Link
-            to={isAuthenticated ? "/find-parking" : "/register"}
+            to={user ? "/find-parking" : "/register"}
             className="btn bg-white text-primary-500 hover:bg-gray-100 px-8 py-3 text-lg font-medium"
           >
-            {isAuthenticated ? "Find Parking Now" : "Sign Up for Free"}
+            {user ? "Find Parking Now" : "Sign Up for Free"}
           </Link>
         </div>
       </section>

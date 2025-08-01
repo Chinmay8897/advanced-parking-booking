@@ -5,7 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 
 const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const { isAuthenticated, user, logout } = useAuth();
+  const { user, logout } = useAuth();
 
   const closeMenu = () => setIsMenuOpen(false);
 
@@ -37,7 +37,7 @@ const Navbar = () => {
             >
               Find Parking
             </NavLink>
-            {isAuthenticated && (
+            {user && (
               <NavLink 
                 to="/my-bookings" 
                 className={({isActive}) => 
@@ -59,11 +59,11 @@ const Navbar = () => {
 
           {/* User Actions */}
           <div className="hidden md:flex items-center">
-            {isAuthenticated ? (
+            {user ? (
               <div className="flex items-center">
                 <div className="mr-4 text-sm">
                   <span className="text-gray-600">Hello, </span>
-                  <span className="font-medium">{user?.name.split(' ')[0] || 'User'}</span>
+                  <span className="font-medium">{user?.name?.split(' ')[0] || user?.email?.split('@')[0] || 'User'}</span>
                 </div>
                 <button
                   onClick={logout}
@@ -116,7 +116,7 @@ const Navbar = () => {
               >
                 Find Parking
               </NavLink>
-              {isAuthenticated && (
+              {user && (
                 <NavLink 
                   to="/my-bookings" 
                   className={({isActive}) => 
@@ -138,11 +138,11 @@ const Navbar = () => {
               </NavLink>
               
               {/* Mobile User Actions */}
-              {isAuthenticated ? (
+              {user ? (
                 <div className="pt-2 border-t border-gray-200">
                   <div className="flex items-center mb-2">
                     <User size={18} className="mr-2 text-gray-600" />
-                    <span className="font-medium">{user?.name || 'User'}</span>
+                    <span className="font-medium">{user?.name || user?.email?.split('@')[0] || 'User'}</span>
                   </div>
                   <button
                     onClick={() => {

@@ -1,24 +1,43 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { Calendar, Clock, MapPin, X } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useBookings } from '../contexts/BookingContext';
+import LoadingSpinner from '../components/ui/LoadingSpinner';
 
 const MyBookingsPage = () => {
   const { user } = useAuth();
-  const { getUserBookings, cancelBooking } = useBookings();
-  const [selectedStatus, setSelectedStatus] = useState<'all' | 'confirmed' | 'cancelled'>('all');
+  const { bookings, getUserBookings, cancelBooking, loading } = useBookings();
+  const [selectedStatus, setSelectedStatus] = useState<'all' | 'confirmed' | 'cancelled' | 'pending' | 'completed'>('all');
+  const [isLoading, setIsLoading] = useState(true);
 
-  const userBookings = getUserBookings(user?.id || '');
+  useEffect(() => {
+    const loadBookings = async () => {
+      if (user) {
+        await getUserBookings();
+        setIsLoading(false);
+      }
+    };
+    loadBookings();
+  }, [user, getUserBookings]);
+
   const filteredBookings = selectedStatus === 'all'
-    ? userBookings
-    : userBookings.filter(booking => booking.status === selectedStatus);
+    ? bookings
+    : bookings.filter(booking => booking.status === selectedStatus);
 
-  const handleCancelBooking = (bookingId: string) => {
+  const handleCancelBooking = async (bookingId: string) => {
     if (window.confirm('Are you sure you want to cancel this booking?')) {
-      cancelBooking(bookingId);
+      await cancelBooking(bookingId);
     }
   };
+
+  if (loading || isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <LoadingSpinner size="large" />
+      </div>
+    );
+  }
 
   return (
     <div className="bg-gray-50 min-h-screen py-8">
@@ -51,6 +70,26 @@ const MyBookingsPage = () => {
               </button>
               <button
                 className={`px-4 py-2 rounded-full ${
+                  selectedStatus === 'confirmed'
+                    ? 'bg-primary-500 text-white'
+                    : 'bg-white text-gray-600 hover:bg-gray-100'
+                }`}
+                onClick={() => setSelectedStatus('confirmed')}
+              >
+                Confirmed
+              </button>
+              <button
+                className={`px-4 py-2 rounded-full ${
+                  selectedStatus === 'pending'
+                    ? 'bg-primary-500 text-white'
+                    : 'bg-white text-gray-600 hover:bg-gray-100'
+                }`}
+                onClick={() => setSelectedStatus('pending')}
+              >
+                Pending
+              </button>
+              <button
+                className={`px-4 py-2 rounded-full ${
                   selectedStatus === 'cancelled'
                     ? 'bg-primary-500 text-white'
                     : 'bg-white text-gray-600 hover:bg-gray-100'
@@ -58,6 +97,16 @@ const MyBookingsPage = () => {
                 onClick={() => setSelectedStatus('cancelled')}
               >
                 Cancelled
+              </button>
+              <button
+                className={`px-4 py-2 rounded-full ${
+                  selectedStatus === 'completed'
+                    ? 'bg-primary-500 text-white'
+                    : 'bg-white text-gray-600 hover:bg-gray-100'
+                }`}
+                onClick={() => setSelectedStatus('completed')}
+              >
+                Completed
               </button>
             </div>
           </div>
@@ -80,21 +129,21 @@ const MyBookingsPage = () => {
                     <div>
                       <h3 className="text-xl font-semibold mb-2">{booking.parkingSpotName}</h3>
                       <div className="space-y-2">
-                        <div className="flex items-center text-gray-600">
-                          <Calendar size={18} className="mr-2" />
-                          <span>{format(new Date(booking.date), 'MMMM do, yyyy')}</span>
-                        </div>
-                        <div className="flex items-center text-gray-600">
-                          <Clock size={18} className="mr-2" />
-                          <span>{booking.fromTime} - {booking.toTime}</span>
-                        </div>
-                        <div className="flex items-center text-gray-600">
-                          <MapPin size={18} className="mr-2" />
-                          <span>Parking Spot #{booking.parkingSpotId}</span>
-                        </div>
-                        <div className="flex items-center text-gray-600">
-                          <span className="font-medium">Price: ₹{booking.price}/hour</span>
-                        </div>
+                                              <div className="flex items-center text-gray-600">
+                        <Calendar size={18} className="mr-2" />
+                        <span>{format(new Date(booking.start_time), 'MMMM do, yyyy')}</span>
+                      </div>
+                      <div className="flex items-center text-gray-600">
+                        <Clock size={18} className="mr-2" />
+                        <span>{format(new Date(booking.start_time), 'HH:mm')} - {format(new Date(booking.end_time), 'HH:mm')}</span>
+                      </div>
+                      <div className="flex items-center text-gray-600">
+                        <MapPin size={18} className="mr-2" />
+                        <span>{booking.parking_slot_name}</span>
+                      </div>
+                      <div className="flex items-center text-gray-600">
+                        <span className="font-medium">Total Amount: ₹{booking.total_amount}</span>
+                      </div>
                       </div>
                     </div>
                     <div className="flex items-center">
@@ -102,12 +151,16 @@ const MyBookingsPage = () => {
                         className={`px-3 py-1 rounded-full text-sm font-medium mr-4 ${
                           booking.status === 'confirmed'
                             ? 'bg-green-100 text-green-800'
+                            : booking.status === 'pending'
+                            ? 'bg-yellow-100 text-yellow-800'
+                            : booking.status === 'completed'
+                            ? 'bg-blue-100 text-blue-800'
                             : 'bg-red-100 text-red-800'
                         }`}
                       >
                         {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
                       </span>
-                      {booking.status === 'confirmed' && (
+                      {(booking.status === 'confirmed' || booking.status === 'pending') && (
                         <button
                           onClick={() => handleCancelBooking(booking.id)}
                           className="text-red-500 hover:text-red-700"

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { Calendar, Clock, MapPin, Filter } from 'lucide-react';
-import { mockParkingLocations } from '../services/mockData';
+import { parkingService, ParkingLocation } from '../services/parkingService';
 import BookingModal from '../components/BookingModal';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -15,7 +15,7 @@ const FindParkingPage = () => {
   const [fromTime, setFromTime] = useState('10:00 AM');
   const [toTime, setToTime] = useState('11:00 AM');
   const [activeFilter, setActiveFilter] = useState<FilterOption>('all');
-  const [locations, setLocations] = useState(mockParkingLocations);
+  const [locations, setLocations] = useState<ParkingLocation[]>([]);
   const [showCalendar, setShowCalendar] = useState(false);
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState<any>(null);
@@ -32,9 +32,14 @@ const FindParkingPage = () => {
     const loadParkingLocations = async () => {
       try {
         setIsLoading(true);
-        // TODO: Replace with actual Supabase query
-        // For now, using mock data
-        setLocations(mockParkingLocations);
+        const { data, error } = await parkingService.getParkingLocations();
+        
+        if (error) {
+          console.error('Error loading parking locations:', error);
+          return;
+        }
+        
+        setLocations(data || []);
       } catch (error) {
         console.error('Error loading parking locations:', error);
       } finally {
@@ -47,18 +52,35 @@ const FindParkingPage = () => {
   
   // Filter locations based on selected filter
   useEffect(() => {
-    if (activeFilter === 'all') {
-      setLocations(mockParkingLocations);
-      return;
-    }
+    const loadAndFilterLocations = async () => {
+      try {
+        const { data, error } = await parkingService.getParkingLocations();
+        
+        if (error) {
+          console.error('Error loading parking locations:', error);
+          return;
+        }
+        
+        const allLocations = data || [];
+        
+        if (activeFilter === 'all') {
+          setLocations(allLocations);
+          return;
+        }
+        
+        const filteredLocations = allLocations.filter(location => {
+          return location.amenities.some(amenity => 
+            amenity.toLowerCase().replace(/\s/g, '-') === activeFilter
+          );
+        });
+        
+        setLocations(filteredLocations);
+      } catch (error) {
+        console.error('Error filtering locations:', error);
+      }
+    };
     
-    const filteredLocations = mockParkingLocations.filter(location => {
-      return location.amenities.some(amenity => 
-        amenity.toLowerCase().replace(/\s/g, '-') === activeFilter
-      );
-    });
-    
-    setLocations(filteredLocations);
+    loadAndFilterLocations();
   }, [activeFilter]);
   
   const handleBooking = (location: any) => {

@@ -6,7 +6,7 @@ import LoadingSpinner from '../components/ui/LoadingSpinner';
 const LoginPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { signIn } = useAuth();
+  const { login } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -22,11 +22,24 @@ const LoginPage = () => {
 
     try {
       console.log('Attempting to sign in with:', { email });
-      const { error } = await signIn(email, password);
+      const { error } = await login(email, password);
       
       if (error) {
         console.error('Sign in error:', error);
-        throw error;
+        // Provide more specific error messages
+        let errorMessage = 'Failed to sign in. Please check your credentials and try again.';
+        
+        if (error.message) {
+          errorMessage = error.message;
+        } else if (error.status === 400) {
+          errorMessage = 'Invalid email or password.';
+        } else if (error.status === 401) {
+          errorMessage = 'Invalid credentials. Please check your email and password.';
+        } else if (error.status === 422) {
+          errorMessage = 'Please check your email format and try again.';
+        }
+        
+        throw new Error(errorMessage);
       }
       
       console.log('Sign in successful, navigating to home');
