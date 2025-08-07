@@ -35,6 +35,7 @@ const RegisterPage = () => {
       
       // If registration is successful, navigate to home page
       navigate('/');
+      return; // Add early return to prevent setLoading(false) after successful registration
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred during registration');
     } finally {

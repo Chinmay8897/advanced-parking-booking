@@ -32,17 +32,24 @@ const FindParkingPage = () => {
     const loadParkingLocations = async () => {
       try {
         setIsLoading(true);
-        const { data, error } = await parkingService.getParkingLocations();
+        // Use mock data for now instead of actual API call
+        // const { data, error } = await parkingService.getParkingLocations();
         
-        if (error) {
-          console.error('Error loading parking locations:', error);
-          return;
-        }
+        // if (error) {
+        //   console.error('Error loading parking locations:', error);
+        //   return;
+        // }
         
-        setLocations(data || []);
+        // Import mock data from services/mockData.ts
+        import('../services/mockData').then(({ mockParkingLocations }) => {
+          setLocations(mockParkingLocations || []);
+          setIsLoading(false);
+        }).catch(error => {
+          console.error('Error loading mock data:', error);
+          setIsLoading(false);
+        });
       } catch (error) {
         console.error('Error loading parking locations:', error);
-      } finally {
         setIsLoading(false);
       }
     };
@@ -54,33 +61,34 @@ const FindParkingPage = () => {
   useEffect(() => {
     const loadAndFilterLocations = async () => {
       try {
-        const { data, error } = await parkingService.getParkingLocations();
-        
-        if (error) {
-          console.error('Error loading parking locations:', error);
-          return;
-        }
-        
-        const allLocations = data || [];
-        
-        if (activeFilter === 'all') {
-          setLocations(allLocations);
-          return;
-        }
-        
-        const filteredLocations = allLocations.filter(location => {
-          return location.amenities.some(amenity => 
-            amenity.toLowerCase().replace(/\s/g, '-') === activeFilter
-          );
+        // Use mock data for filtering
+        import('../services/mockData').then(({ mockParkingLocations }) => {
+          const allLocations = mockParkingLocations || [];
+          
+          if (activeFilter === 'all') {
+            setLocations(allLocations);
+            return;
+          }
+          
+          const filteredLocations = allLocations.filter(location => {
+            return location.amenities.some(amenity => 
+              amenity.toLowerCase().replace(/\s/g, '-') === activeFilter
+            );
+          });
+          
+          setLocations(filteredLocations);
+        }).catch(error => {
+          console.error('Error loading mock data for filtering:', error);
         });
-        
-        setLocations(filteredLocations);
       } catch (error) {
         console.error('Error filtering locations:', error);
       }
     };
     
-    loadAndFilterLocations();
+    // Only run this effect if locations are already loaded
+    if (locations.length > 0) {
+      loadAndFilterLocations();
+    }
   }, [activeFilter]);
   
   const handleBooking = (location: any) => {
@@ -371,7 +379,7 @@ const FindParkingPage = () => {
               <div className="px-4 pb-4">
                 <h4 className="font-medium mb-2">Available Slots</h4>
                 <div className="grid grid-cols-4 gap-2">
-                  {location.slots.map((slot, i) => (
+                  {location.slots && location.slots.map((slot, i) => (
                     <button 
                       key={i} 
                       className={`slot-button ${

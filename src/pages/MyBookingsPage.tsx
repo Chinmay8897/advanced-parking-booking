@@ -1,13 +1,13 @@
 import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
-import { Calendar, Clock, MapPin, X } from 'lucide-react';
+import { Calendar, Clock, MapPin, X, CheckCircle } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useBookings } from '../contexts/BookingContext';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 
 const MyBookingsPage = () => {
   const { user } = useAuth();
-  const { bookings, getUserBookings, cancelBooking, loading } = useBookings();
+  const { bookings, getUserBookings, cancelBooking, updateBookingStatus, loading } = useBookings();
   const [selectedStatus, setSelectedStatus] = useState<'all' | 'confirmed' | 'cancelled' | 'pending' | 'completed'>('all');
   const [isLoading, setIsLoading] = useState(true);
 
@@ -28,6 +28,12 @@ const MyBookingsPage = () => {
   const handleCancelBooking = async (bookingId: string) => {
     if (window.confirm('Are you sure you want to cancel this booking?')) {
       await cancelBooking(bookingId);
+    }
+  };
+
+  const handleCompleteBooking = async (bookingId: string) => {
+    if (window.confirm('Mark this booking as completed?')) {
+      await updateBookingStatus(bookingId, 'completed');
     }
   };
 
@@ -160,15 +166,26 @@ const MyBookingsPage = () => {
                       >
                         {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
                       </span>
-                      {(booking.status === 'confirmed' || booking.status === 'pending') && (
-                        <button
-                          onClick={() => handleCancelBooking(booking.id)}
-                          className="text-red-500 hover:text-red-700"
-                          title="Cancel Booking"
-                        >
-                          <X size={20} />
-                        </button>
-                      )}
+                      <div className="flex space-x-2">
+                        {booking.status === 'confirmed' && (
+                          <button
+                            onClick={() => handleCompleteBooking(booking.id)}
+                            className="text-green-500 hover:text-green-700"
+                            title="Mark as Completed"
+                          >
+                            <CheckCircle size={20} />
+                          </button>
+                        )}
+                        {(booking.status === 'confirmed' || booking.status === 'pending') && (
+                          <button
+                            onClick={() => handleCancelBooking(booking.id)}
+                            className="text-red-500 hover:text-red-700"
+                            title="Cancel Booking"
+                          >
+                            <X size={20} />
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>

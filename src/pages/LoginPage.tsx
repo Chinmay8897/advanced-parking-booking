@@ -21,6 +21,14 @@ const LoginPage = () => {
     setLoading(true);
 
     try {
+      // Validate inputs client-side
+      if (!email.trim()) {
+        throw new Error('Email is required');
+      }
+      if (!password) {
+        throw new Error('Password is required');
+      }
+
       console.log('Attempting to sign in with:', { email });
       const { error } = await login(email, password);
       
@@ -37,6 +45,12 @@ const LoginPage = () => {
           errorMessage = 'Invalid credentials. Please check your email and password.';
         } else if (error.status === 422) {
           errorMessage = 'Please check your email format and try again.';
+        } else if (error.code === 'auth/invalid-email') {
+          errorMessage = 'The email address is not valid.';
+        } else if (error.code === 'auth/user-disabled') {
+          errorMessage = 'This user account has been disabled.';
+        } else if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
+          errorMessage = 'Invalid email or password.';
         }
         
         throw new Error(errorMessage);
@@ -44,6 +58,7 @@ const LoginPage = () => {
       
       console.log('Sign in successful, navigating to home');
       navigate('/');
+      return; // Add early return to prevent setLoading(false) after successful login
     } catch (err: any) {
       console.error('Login error:', err);
       setError(

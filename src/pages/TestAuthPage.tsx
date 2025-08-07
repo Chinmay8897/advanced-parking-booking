@@ -1,14 +1,19 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
+import { testSupabaseConnection, testDemoAuth } from '../utils/testAuth';
+import SupabaseChecker from '../components/SupabaseChecker';
 
 const TestAuthPage = () => {
   const { user, loading } = useAuth();
   const [session, setSession] = useState<any>(null);
   const [users, setUsers] = useState<any[]>([]);
-  const [testEmail, setTestEmail] = useState('');
-  const [testPassword, setTestPassword] = useState('');
+  const [testEmail, setTestEmail] = useState('demo@example.com');
+  const [testPassword, setTestPassword] = useState('password123');
   const [testResult, setTestResult] = useState<any>(null);
+  const [connectionResult, setConnectionResult] = useState<any>(null);
+  const [authResult, setAuthResult] = useState<any>(null);
+  const [testLoading, setTestLoading] = useState(false);
 
   useEffect(() => {
     const getSession = async () => {
@@ -16,7 +21,44 @@ const TestAuthPage = () => {
       setSession(session);
     };
     getSession();
+    
+    // Automatically test connection when page loads
+    testConnection();
   }, []);
+  
+  const testConnection = async () => {
+    setTestLoading(true);
+    try {
+      const result = await testSupabaseConnection();
+      setConnectionResult(result);
+    } catch (err: any) {
+      console.error('Connection test error:', err);
+      setConnectionResult({
+        success: false,
+        message: err.message || 'An error occurred testing the connection',
+        error: err
+      });
+    } finally {
+      setTestLoading(false);
+    }
+  };
+
+  const testDemoAuthentication = async () => {
+    setTestLoading(true);
+    try {
+      const result = await testDemoAuth();
+      setAuthResult(result);
+    } catch (err: any) {
+      console.error('Demo auth test error:', err);
+      setAuthResult({
+        success: false,
+        message: err.message || 'An error occurred testing authentication',
+        error: err
+      });
+    } finally {
+      setTestLoading(false);
+    }
+  };
 
   const testLogin = async () => {
     try {
@@ -56,7 +98,74 @@ const TestAuthPage = () => {
     <div className="container mx-auto px-4 py-8">
       <h1 className="text-2xl font-bold mb-6">Authentication Test Page</h1>
       
+      <div className="mb-6">
+        <SupabaseChecker />
+      </div>
+      
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Connection Test */}
+        <div className="bg-white p-6 rounded-lg shadow">
+          <h2 className="text-xl font-semibold mb-4">Connection Test</h2>
+          <div className="space-y-4">
+            <button
+              onClick={testConnection}
+              className="w-full bg-blue-500 text-white p-2 rounded hover:bg-blue-600"
+              disabled={testLoading}
+            >
+              {testLoading ? 'Testing...' : 'Test Supabase Connection'}
+            </button>
+            
+            {connectionResult && (
+              <div className="mt-4">
+                <h3 className="font-semibold mb-2">Result:</h3>
+                <div className={`p-3 rounded ${connectionResult.success ? 'bg-green-100' : 'bg-red-100'}`}>
+                  <p><strong>Status:</strong> {connectionResult.success ? 'Success' : 'Failed'}</p>
+                  <p><strong>Message:</strong> {connectionResult.message}</p>
+                  {connectionResult.error && (
+                    <details className="mt-2">
+                      <summary className="cursor-pointer">Error Details</summary>
+                      <pre className="text-xs bg-gray-100 p-2 mt-2 rounded overflow-auto">
+                        {JSON.stringify(connectionResult.error, null, 2)}
+                      </pre>
+                    </details>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Demo Auth Test */}
+        <div className="bg-white p-6 rounded-lg shadow">
+          <h2 className="text-xl font-semibold mb-4">Demo Authentication Test</h2>
+          <div className="space-y-4">
+            <button
+              onClick={testDemoAuthentication}
+              className="w-full bg-blue-500 text-white p-2 rounded hover:bg-blue-600"
+              disabled={testLoading}
+            >
+              {testLoading ? 'Testing...' : 'Test Demo Authentication'}
+            </button>
+            
+            {authResult && (
+              <div className="mt-4">
+                <h3 className="font-semibold mb-2">Result:</h3>
+                <div className={`p-3 rounded ${authResult.success ? 'bg-green-100' : 'bg-red-100'}`}>
+                  <p><strong>Status:</strong> {authResult.success ? 'Success' : 'Failed'}</p>
+                  <p><strong>Message:</strong> {authResult.message}</p>
+                  {authResult.error && (
+                    <details className="mt-2">
+                      <summary className="cursor-pointer">Error Details</summary>
+                      <pre className="text-xs bg-gray-100 p-2 mt-2 rounded overflow-auto">
+                        {JSON.stringify(authResult.error, null, 2)}
+                      </pre>
+                    </details>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
         {/* Current Auth State */}
         <div className="bg-white p-6 rounded-lg shadow">
           <h2 className="text-xl font-semibold mb-4">Current Auth State</h2>
@@ -170,4 +279,4 @@ const TestAuthPage = () => {
   );
 };
 
-export default TestAuthPage; 
+export default TestAuthPage;

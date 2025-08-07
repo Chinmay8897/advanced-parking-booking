@@ -8,6 +8,6 @@ export default defineConfig({
     exclude: ['lucide-react'],
   },
   define: {
-    'process.env': {}
+    // Empty define to avoid overriding import.meta.env variables
   }
 });

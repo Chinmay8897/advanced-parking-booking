@@ -41,6 +41,7 @@ export interface Database {
           id: string;
           user_id: string;
           parking_slot_id: string;
+          parking_slot_name: string;
           start_time: string;
           end_time: string;
           total_amount: number;
@@ -52,6 +53,7 @@ export interface Database {
           id?: string;
           user_id: string;
           parking_slot_id: string;
+          parking_slot_name: string;
           start_time: string;
           end_time: string;
           total_amount: number;
@@ -63,6 +65,7 @@ export interface Database {
           id?: string;
           user_id?: string;
           parking_slot_id?: string;
+          parking_slot_name?: string;
           start_time?: string;
           end_time?: string;
           total_amount?: number;
@@ -102,4 +105,4 @@ export interface Database {
       };
     };
   };
-} 
+}

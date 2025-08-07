@@ -108,6 +108,46 @@ export const parkingService = {
       return { error };
     }
   },
+  
+  // Update slot availability based on booking
+  async updateSlotAvailabilityByBooking(slotId: string, startTime: string, endTime: string, status: string): Promise<{ error: any }> {
+    try {
+      // If booking is cancelled, we need to check if there are other bookings for this slot
+      // in the same time period before marking it as available
+      if (status === 'cancelled') {
+        const { data, error: checkError } = await supabase
+          .from('bookings')
+          .select('id')
+          .eq('parking_slot_id', slotId)
+          .eq('status', 'confirmed')
+          .or(`start_time.lte.${endTime},end_time.gte.${startTime}`);
+          
+        if (checkError) {
+          console.error('Error checking other bookings:', checkError);
+          return { error: checkError };
+        }
+        
+        // If no other bookings found, mark slot as available
+        if (!data || data.length === 0) {
+          return this.updateSlotAvailability(slotId, true);
+        }
+        
+        // Otherwise, keep it unavailable
+        return { error: null };
+      }
+      
+      // If booking is confirmed, mark slot as unavailable
+      if (status === 'confirmed') {
+        return this.updateSlotAvailability(slotId, false);
+      }
+      
+      // For other statuses, do nothing
+      return { error: null };
+    } catch (error) {
+      console.error('Error updating slot availability by booking:', error);
+      return { error };
+    }
+  },
 
   // Get parking location by ID
   async getParkingLocation(locationId: string): Promise<{ data: ParkingLocation | null; error: any }> {
@@ -129,4 +169,4 @@ export const parkingService = {
       return { data: null, error };
     }
   },
-}; 
+};

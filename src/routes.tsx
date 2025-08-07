@@ -14,6 +14,7 @@ const MyBookingsPage = lazy(() => import('./pages/MyBookingsPage'));
 const ContactPage = lazy(() => import('./pages/ContactPage'));
 const NotFoundPage = lazy(() => import('./pages/NotFoundPage'));
 const TestAuthPage = lazy(() => import('./pages/TestAuthPage'));
+const DebugAuthPage = lazy(() => import('./pages/DebugAuthPage'));
 
 
 
@@ -65,6 +66,10 @@ export const router = createBrowserRouter([
         element: <TestAuthPage />,
       },
       {
+        path: 'debug-auth',
+        element: <DebugAuthPage />,
+      },
+      {
         path: 'payment/:bookingId',
         element: <PaymentPage />,
       },
@@ -74,4 +79,4 @@ export const router = createBrowserRouter([
       },
     ],
   },
-]); 
+]);

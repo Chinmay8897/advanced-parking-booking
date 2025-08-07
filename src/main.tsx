@@ -2,9 +2,15 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App';
 import './index.css';
+import { AuthProvider } from './contexts/AuthContext';
+import { BookingProvider } from './contexts/BookingContext';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <App />
+    <AuthProvider>
+      <BookingProvider>
+        <App />
+      </BookingProvider>
+    </AuthProvider>
   </StrictMode>
 );

@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from './AuthContext';
+import { parkingService } from '../services/parkingService';
 
 // Define types
 export type Booking = {
@@ -13,6 +14,7 @@ export type Booking = {
   total_amount: number;
   status: 'pending' | 'confirmed' | 'cancelled' | 'completed';
   created_at: string;
+  updated_at?: string;
 };
 
 type BookingContextType = {
@@ -20,6 +22,7 @@ type BookingContextType = {
   addBooking: (booking: Omit<Booking, 'id' | 'created_at' | 'user_id'>) => Promise<{ error: any }>;
   cancelBooking: (bookingId: string) => Promise<{ error: any }>;
   getUserBookings: () => Promise<{ data: Booking[] | null; error: any }>;
+  updateBookingStatus: (bookingId: string, status: 'pending' | 'confirmed' | 'cancelled' | 'completed') => Promise<{ error: any }>;
   loading: boolean;
 };
 
@@ -94,16 +97,20 @@ export const BookingProvider = ({ children }: { children: ReactNode }) => {
     }
 
     try {
+      // Use the provided status or default to 'pending'
+      const status = bookingData.status || 'pending';
+      
       const { data, error } = await supabase
         .from('bookings')
         .insert([
           {
             user_id: user.id,
             parking_slot_id: bookingData.parking_slot_id,
+            parking_slot_name: bookingData.parking_slot_name, // Store the slot name
             start_time: bookingData.start_time,
             end_time: bookingData.end_time,
             total_amount: bookingData.total_amount,
-            status: 'pending',
+            status: status,
           },
         ])
         .select()
@@ -112,6 +119,22 @@ export const BookingProvider = ({ children }: { children: ReactNode }) => {
       if (error) {
         console.error('Error creating booking:', error);
         return { error };
+      }
+
+      // If the booking is confirmed, update the slot availability
+      if (status === 'confirmed' || status === 'pending') {
+        try {
+          // Update the slot availability in the database
+          await parkingService.updateSlotAvailabilityByBooking(
+            bookingData.parking_slot_id,
+            bookingData.start_time,
+            bookingData.end_time,
+            status
+          );
+        } catch (slotError) {
+          console.error('Error updating slot availability:', slotError);
+          // Continue with the booking process even if slot update fails
+        }
       }
 
       // Refresh bookings list
@@ -129,15 +152,42 @@ export const BookingProvider = ({ children }: { children: ReactNode }) => {
     }
 
     try {
+      // First get the booking details to update slot availability
+      const { data: bookingData, error: fetchError } = await supabase
+        .from('bookings')
+        .select('*')
+        .eq('id', bookingId)
+        .eq('user_id', user.id)
+        .single();
+
+      if (fetchError) {
+        console.error('Error fetching booking details:', fetchError);
+        return { error: fetchError };
+      }
+
+      // Update booking status to cancelled
       const { error } = await supabase
         .from('bookings')
-        .update({ status: 'cancelled' })
+        .update({ 
+          status: 'cancelled',
+          updated_at: new Date().toISOString() 
+        })
         .eq('id', bookingId)
         .eq('user_id', user.id);
 
       if (error) {
         console.error('Error cancelling booking:', error);
         return { error };
+      }
+
+      // Update slot availability
+      if (bookingData) {
+        await parkingService.updateSlotAvailabilityByBooking(
+          bookingData.parking_slot_id,
+          bookingData.start_time,
+          bookingData.end_time,
+          'cancelled'
+        );
       }
 
       // Refresh bookings list
@@ -149,11 +199,63 @@ export const BookingProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  // Update booking status
+  const updateBookingStatus = async (bookingId: string, status: 'pending' | 'confirmed' | 'cancelled' | 'completed') => {
+    if (!user) {
+      return { error: new Error('User must be authenticated to update a booking') };
+    }
+
+    try {
+      // First get the booking details to update slot availability
+      const { data: bookingData, error: fetchError } = await supabase
+        .from('bookings')
+        .select('*')
+        .eq('id', bookingId)
+        .eq('user_id', user.id)
+        .single();
+
+      if (fetchError) {
+        console.error('Error fetching booking details:', fetchError);
+        return { error: fetchError };
+      }
+
+      // Update booking status
+      const { error } = await supabase
+        .from('bookings')
+        .update({ status, updated_at: new Date().toISOString() })
+        .eq('id', bookingId)
+        .eq('user_id', user.id);
+
+      if (error) {
+        console.error('Error updating booking status:', error);
+        return { error };
+      }
+
+      // Update slot availability based on new status
+      if (bookingData) {
+        await parkingService.updateSlotAvailabilityByBooking(
+          bookingData.parking_slot_id,
+          bookingData.start_time,
+          bookingData.end_time,
+          status
+        );
+      }
+
+      // Refresh bookings list
+      await getUserBookings();
+      return { error: null };
+    } catch (error) {
+      console.error('Error updating booking status:', error);
+      return { error };
+    }
+  };
+
   const value = {
     bookings,
     addBooking,
     cancelBooking,
     getUserBookings,
+    updateBookingStatus,
     loading,
   };
 

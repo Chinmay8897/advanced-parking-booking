@@ -36,13 +36,22 @@ const BookingModal = ({ isOpen, onClose, location, date, fromTime, toTime }: Boo
     if (!selectedSlot || !user) return;
 
     try {
-      // Create the booking
+      // Find the selected slot object from location.slots
+      const slotObj = location.slots.find((slot: any) => slot.name === selectedSlot);
+      
+      if (!slotObj) {
+        console.error('Selected slot not found');
+        return;
+      }
+      
+      // Create the booking with status
       const { error } = await addBooking({
-        parking_slot_id: selectedSlot,
-        parking_slot_name: location.name,
+        parking_slot_id: slotObj.id || selectedSlot, // Use slot ID if available, otherwise use name
+        parking_slot_name: `${selectedSlot} - ${location.name}`,
         start_time: `${format(date, 'yyyy-MM-dd')}T${fromTime}`,
         end_time: `${format(date, 'yyyy-MM-dd')}T${toTime}`,
-        total_amount: parseFloat(calculateAmount())
+        total_amount: parseFloat(calculateAmount()),
+        status: 'confirmed' // Set initial status as confirmed
       });
 
       if (error) {
@@ -50,6 +59,18 @@ const BookingModal = ({ isOpen, onClose, location, date, fromTime, toTime }: Boo
         return;
       }
 
+      // Update the slot availability in mock data
+      // In a real application, this would update the database
+      const updatedSlots = location.slots.map((slot: any) => {
+        if (slot.name === selectedSlot) {
+          return { ...slot, status: 'unavailable' };
+        }
+        return slot;
+      });
+      
+      // Update the location object with updated slots
+      location.slots = updatedSlots;
+      
       setBookingStep(BookingStep.Confirmation);
     } catch (error) {
       console.error('Error creating booking:', error);
