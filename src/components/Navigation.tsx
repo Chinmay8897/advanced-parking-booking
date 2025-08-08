@@ -2,10 +2,19 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
 const Navigation = () => {
-  const { user, signOut } = useAuth();
+  const { user, logout } = useAuth();
+  
+  // Optional: navigate after logout
+  // Import useNavigate if redirection is desired
+  // const navigate = useNavigate();
 
   const handleSignOut = async () => {
-    await signOut();
+    const { error } = await logout();
+    if (error) {
+      console.error('Logout error:', error);
+    }
+    // If you want to redirect after logout, uncomment:
+    // navigate('/login');
   };
 
   return (

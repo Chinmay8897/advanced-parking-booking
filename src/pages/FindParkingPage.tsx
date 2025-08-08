@@ -1,17 +1,20 @@
 import { useState, useEffect } from 'react';
-import { format } from 'date-fns';
+import { format, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, isToday } from 'date-fns';
 import { Calendar, Clock, MapPin, Filter } from 'lucide-react';
 import { parkingService, ParkingLocation } from '../services/parkingService';
 import BookingModal from '../components/BookingModal';
 import { useAuth } from '../contexts/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 
 type FilterOption = 'all' | 'indoor' | 'outdoor' | 'ev-charging' | 'security' | 'covered';
 
 const FindParkingPage = () => {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const [searchParams] = useSearchParams();
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [currentMonth, setCurrentMonth] = useState<Date>(new Date());
   const [fromTime, setFromTime] = useState('10:00 AM');
   const [toTime, setToTime] = useState('11:00 AM');
   const [activeFilter, setActiveFilter] = useState<FilterOption>('all');
@@ -20,6 +23,31 @@ const FindParkingPage = () => {
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Calendar helpers for proper date selection
+  const daysInMonth = eachDayOfInterval({
+    start: startOfMonth(currentMonth),
+    end: endOfMonth(currentMonth),
+  });
+  const firstDayOfMonth = startOfMonth(currentMonth).getDay();
+
+  // Initialize selectedDate from navigation state or query param if provided
+  useEffect(() => {
+    // from state
+    const stateDate = (location.state as any)?.date as string | Date | undefined;
+    // from query (?date=YYYY-MM-DD)
+    const qp = searchParams.get('date');
+    const incoming = stateDate || qp;
+    if (incoming) {
+      const dt = typeof incoming === 'string' ? new Date(incoming) : incoming;
+      if (!isNaN(dt.getTime())) {
+        setSelectedDate(dt);
+        setCurrentMonth(startOfMonth(dt));
+      }
+    }
+  // run once on mount for initial hydration
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   
   useEffect(() => {
     // Check authentication status
@@ -149,36 +177,49 @@ const FindParkingPage = () => {
               {showCalendar && (
                 <div className="absolute z-10 mt-1 bg-white shadow-lg rounded-md p-3 border border-gray-200 w-64">
                   <div className="flex justify-between items-center mb-2">
-                    <h3 className="font-medium">{format(selectedDate, 'MMMM yyyy')}</h3>
+                    <h3 className="font-medium">{format(currentMonth, 'MMMM yyyy')}</h3>
                     <div className="flex">
-                      <button className="p-1 hover:bg-gray-100 rounded-full">
+                      <button
+                        className="p-1 hover:bg-gray-100 rounded-full"
+                        onClick={() => setCurrentMonth(prev => subMonths(prev, 1))}
+                      >
                         &lt;
                       </button>
-                      <button className="p-1 hover:bg-gray-100 rounded-full ml-1">
+                      <button
+                        className="p-1 hover:bg-gray-100 rounded-full ml-1"
+                        onClick={() => setCurrentMonth(prev => addMonths(prev, 1))}
+                      >
                         &gt;
                       </button>
                     </div>
                   </div>
-                  
+
                   <div className="grid grid-cols-7 gap-1 text-center text-sm">
                     {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map(day => (
                       <div key={day} className="font-medium text-gray-500 py-1">{day}</div>
                     ))}
-                    
-                    {/* Placeholder for full calendar implementation */}
-                    {Array.from({ length: 35 }).map((_, i) => {
-                      const isToday = i === 9; // Mock for demo
+
+                    {/* Add padding for first week */}
+                    {Array.from({ length: firstDayOfMonth }).map((_, index) => (
+                      <div key={`empty-${index}`} className="py-1"></div>
+                    ))}
+
+                    {/* Render real days */}
+                    {daysInMonth.map((date, index) => {
+                      const current = isToday(date);
+                      const selected = isSameDay(date, selectedDate);
                       return (
                         <div
-                          key={i}
-                          className={`calendar-day ${
-                            isToday ? 'bg-primary-500 text-white' : ''
+                          key={index}
+                          className={`calendar-day py-1 cursor-pointer rounded-full ${
+                            selected ? 'bg-primary-500 text-white' : current ? 'bg-gray-100' : 'hover:bg-gray-100'
                           }`}
                           onClick={() => {
+                            setSelectedDate(date);
                             setShowCalendar(false);
                           }}
                         >
-                          {(i % 31) + 1}
+                          {format(date, 'd')}
                         </div>
                       );
                     })}

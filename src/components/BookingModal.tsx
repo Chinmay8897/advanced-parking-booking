@@ -46,7 +46,8 @@ const BookingModal = ({ isOpen, onClose, location, date, fromTime, toTime }: Boo
       
       // Create the booking with status
       const { error } = await addBooking({
-        parking_slot_id: slotObj.id || selectedSlot, // Use slot ID if available, otherwise use name
+        // Only send UUID if present; otherwise null to avoid invalid uuid errors
+        parking_slot_id: slotObj?.id ?? null,
         parking_slot_name: `${selectedSlot} - ${location.name}`,
         start_time: `${format(date, 'yyyy-MM-dd')}T${fromTime}`,
         end_time: `${format(date, 'yyyy-MM-dd')}T${toTime}`,

@@ -7,7 +7,7 @@ import { parkingService } from '../services/parkingService';
 export type Booking = {
   id: string;
   user_id: string;
-  parking_slot_id: string;
+  parking_slot_id: string | null;
   parking_slot_name: string;
   start_time: string;
   end_time: string;
@@ -19,7 +19,7 @@ export type Booking = {
 
 type BookingContextType = {
   bookings: Booking[];
-  addBooking: (booking: Omit<Booking, 'id' | 'created_at' | 'user_id'>) => Promise<{ error: any }>;
+  addBooking: (booking: Omit<Booking, 'id' | 'created_at' | 'user_id'> & { parking_slot_id?: string | null }) => Promise<{ error: any }>;
   cancelBooking: (bookingId: string) => Promise<{ error: any }>;
   getUserBookings: () => Promise<{ data: Booking[] | null; error: any }>;
   updateBookingStatus: (bookingId: string, status: 'pending' | 'confirmed' | 'cancelled' | 'completed') => Promise<{ error: any }>;
@@ -52,28 +52,32 @@ export const BookingProvider = ({ children }: { children: ReactNode }) => {
 
     try {
       setLoading(true);
-      const { data, error } = await supabase
+      console.log('[BookingContext] Fetching bookings for user:', user.id);
+      // Avoid embedded join to prevent errors if FK/relation is missing
+      const fetchPromise = supabase
         .from('bookings')
-        .select(`
-          *,
-          parking_slots (
-            slot_number,
-            location
-          )
-        `)
+        .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
+
+      // Hard timeout so UI cannot hang forever if network stalls
+      const timeoutPromise = new Promise<{ data: any; error: any }>((_, reject) =>
+        setTimeout(() => reject(new Error('bookings_fetch_timeout')), 12000)
+      );
+
+      const { data, error } = await Promise.race([fetchPromise, timeoutPromise]) as { data: any; error: any };
 
       if (error) {
         console.error('Error fetching bookings:', error);
         return { data: null, error };
       }
 
-      const formattedBookings: Booking[] = data?.map(booking => ({
+      const formattedBookings: Booking[] = (data as any[])?.map((booking: any) => ({
         id: booking.id,
         user_id: booking.user_id,
-        parking_slot_id: booking.parking_slot_id,
-        parking_slot_name: `${booking.parking_slots.slot_number} - ${booking.parking_slots.location}`,
+        parking_slot_id: booking.parking_slot_id ?? null,
+        // Use stored name directly; no join required
+        parking_slot_name: booking.parking_slot_name,
         start_time: booking.start_time,
         end_time: booking.end_time,
         total_amount: booking.total_amount,
@@ -82,16 +86,18 @@ export const BookingProvider = ({ children }: { children: ReactNode }) => {
       })) || [];
 
       setBookings(formattedBookings);
+      console.log('[BookingContext] Bookings loaded:', formattedBookings.length);
       return { data: formattedBookings, error: null };
     } catch (error) {
       console.error('Error fetching bookings:', error);
       return { data: null, error };
     } finally {
       setLoading(false);
+      console.log('[BookingContext] Loading set to false');
     }
   };
 
-  const addBooking = async (bookingData: Omit<Booking, 'id' | 'created_at' | 'user_id'>) => {
+  const addBooking = async (bookingData: Omit<Booking, 'id' | 'created_at' | 'user_id'> & { parking_slot_id?: string | null }) => {
     if (!user) {
       return { error: new Error('User must be authenticated to make a booking') };
     }
@@ -105,7 +111,7 @@ export const BookingProvider = ({ children }: { children: ReactNode }) => {
         .insert([
           {
             user_id: user.id,
-            parking_slot_id: bookingData.parking_slot_id,
+            parking_slot_id: bookingData.parking_slot_id ?? null,
             parking_slot_name: bookingData.parking_slot_name, // Store the slot name
             start_time: bookingData.start_time,
             end_time: bookingData.end_time,
@@ -122,7 +128,7 @@ export const BookingProvider = ({ children }: { children: ReactNode }) => {
       }
 
       // If the booking is confirmed, update the slot availability
-      if (status === 'confirmed' || status === 'pending') {
+      if ((status === 'confirmed' || status === 'pending') && bookingData.parking_slot_id) {
         try {
           // Update the slot availability in the database
           await parkingService.updateSlotAvailabilityByBooking(

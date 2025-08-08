@@ -25,4 +25,3 @@ dist-ssr
 .env
 setup.md
 supabase-setup.sql
-utils

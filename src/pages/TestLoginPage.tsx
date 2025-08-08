@@ -7,6 +7,7 @@ import debugEnvironmentVariables from '../utils/envDebug';
 import { testSupabaseConnectivity, testSupabaseClientDirectly } from '../utils/networkTest';
 import { testClientCreationOnly, testAuthServiceOnly } from '../utils/simpleTest';
 import testWithHardcodedValues from '../utils/hardcodedTest';
+import { clearAllStorage, clearSupabaseStorage } from '../lib/clearStorage';
 
 const TestLoginPage = () => {
   const { user, logout } = useAuth();
@@ -336,6 +337,28 @@ const TestLoginPage = () => {
                   className="px-6 py-2 bg-indigo-500 text-white rounded-md hover:bg-indigo-600 disabled:opacity-50"
                 >
                   {loading ? 'Testing...' : '🔧 Hardcoded Test'}
+                </button>
+                <button
+                  onClick={() => {
+                    const result = clearSupabaseStorage();
+                    alert(`Supabase Storage Cleared!\n\nSuccess: ${result.success}\nCleared ${result.clearedKeys?.length || 0} keys\n\nTry logging in again!`);
+                    // Refresh the page after clearing storage
+                    setTimeout(() => window.location.reload(), 1000);
+                  }}
+                  className="px-6 py-2 bg-pink-500 text-white rounded-md hover:bg-pink-600"
+                >
+                  🧽 Clear Storage
+                </button>
+                <button
+                  onClick={() => {
+                    const result = clearAllStorage();
+                    alert(`All Storage Cleared!\n\nSuccess: ${result.success}\nLocalStorage: ${result.clearedItems?.localStorage || 0} items\nSessionStorage: ${result.clearedItems?.sessionStorage || 0} items\n\nPage will refresh...`);
+                    // Refresh the page after clearing storage
+                    setTimeout(() => window.location.reload(), 1000);
+                  }}
+                  className="px-6 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
+                >
+                  🗑️ Clear All Storage
                 </button>
                 <button
                   onClick={runQuickAuth}

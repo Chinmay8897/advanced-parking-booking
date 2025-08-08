@@ -13,7 +13,8 @@ const HomePage = () => {
 
   const handleDateSearch = () => {
     if (user) {
-      navigate('/find-parking');
+      // Pass the selected date to FindParkingPage so it reflects the user's choice
+      navigate('/find-parking', { state: { date: selectedDate.toISOString() } });
     } else {
       navigate('/login');
     }
@@ -66,9 +67,19 @@ const HomePage = () => {
               enjoy stress-free parking experience.
             </p>
             <div className="flex flex-col sm:flex-row gap-4">
-              <Link to={user ? "/find-parking" : "/login"} className="btn btn-primary text-center px-8 py-3">
-                Find Parking Now
-              </Link>
+              {user ? (
+                <button
+                  type="button"
+                  className="btn btn-primary text-center px-8 py-3"
+                  onClick={() => navigate('/find-parking', { state: { date: selectedDate.toISOString() } })}
+                >
+                  Find Parking Now
+                </button>
+              ) : (
+                <Link to="/login" className="btn btn-primary text-center px-8 py-3">
+                  Find Parking Now
+                </Link>
+              )}
               <Link to="/contact" className="btn btn-secondary text-center px-8 py-3">
                 How It Works
               </Link>

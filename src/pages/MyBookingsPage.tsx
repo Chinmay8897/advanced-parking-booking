@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { format } from 'date-fns';
 import { Calendar, Clock, MapPin, X, CheckCircle } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
@@ -9,17 +9,31 @@ const MyBookingsPage = () => {
   const { user } = useAuth();
   const { bookings, getUserBookings, cancelBooking, updateBookingStatus, loading } = useBookings();
   const [selectedStatus, setSelectedStatus] = useState<'all' | 'confirmed' | 'cancelled' | 'pending' | 'completed'>('all');
-  const [isLoading, setIsLoading] = useState(true);
+
+  const fetchedRef = useRef(false);
+  const [loadTimeoutReached, setLoadTimeoutReached] = useState(false);
 
   useEffect(() => {
     const loadBookings = async () => {
-      if (user) {
-        await getUserBookings();
-        setIsLoading(false);
+      try {
+        if (user && !fetchedRef.current) {
+          fetchedRef.current = true;
+          await getUserBookings();
+        }
+      } catch (e) {
+        // noop; errors are surfaced in context logs
       }
     };
     loadBookings();
-  }, [user, getUserBookings]);
+  }, [user]);
+
+  // Safety timeout to prevent indefinite spinner if something stalls upstream
+  useEffect(() => {
+    if (!user) return; // let ProtectedRoute handle auth loading
+    if (!loading) return;
+    const t = setTimeout(() => setLoadTimeoutReached(true), 12000);
+    return () => clearTimeout(t);
+  }, [user, loading]);
 
   const filteredBookings = selectedStatus === 'all'
     ? bookings
@@ -37,7 +51,7 @@ const MyBookingsPage = () => {
     }
   };
 
-  if (loading || isLoading) {
+  if (loading && !loadTimeoutReached) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <LoadingSpinner size="large" />
@@ -133,7 +147,7 @@ const MyBookingsPage = () => {
                 >
                   <div className="flex justify-between items-start">
                     <div>
-                      <h3 className="text-xl font-semibold mb-2">{booking.parkingSpotName}</h3>
+                      <h3 className="text-xl font-semibold mb-2">{booking.parking_slot_name}</h3>
                       <div className="space-y-2">
                                               <div className="flex items-center text-gray-600">
                         <Calendar size={18} className="mr-2" />

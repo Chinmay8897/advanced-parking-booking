@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, ReactNode, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
+import { supabase, getAuthFingerprint } from '../lib/supabase';
 import { User } from '@supabase/supabase-js';
+import { clearSupabaseStorage } from '../lib/clearStorage';
 
 // Define types
 type AuthUser = {
@@ -24,28 +25,66 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // 0) Bust cached sessions when client config changes (URL/key/storageKey)
+    try {
+      const FINGERPRINT_KEY = 'pe_auth_fingerprint_v1';
+      const current = getAuthFingerprint();
+      const existing = typeof window !== 'undefined' ? window.localStorage.getItem(FINGERPRINT_KEY) : null;
+      if (existing && existing !== current) {
+        console.warn('Auth fingerprint changed. Purging old Supabase storage.');
+        try { clearSupabaseStorage(); } catch {}
+      }
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem(FINGERPRINT_KEY, current);
+      }
+    } catch {}
+
     // Get initial session
     const getInitialSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user) {
-        await fetchUserProfile(session.user);
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user) {
+          // Validate the stored session; if invalid, clear it to avoid cache issues
+          const { data: userData, error: userErr } = await supabase.auth.getUser();
+          if (userErr || !userData?.user) {
+            console.warn('Invalid/expired session detected on load. Clearing stored session.');
+            await supabase.auth.signOut();
+            try { clearSupabaseStorage(); } catch {}
+            setUser(null);
+          } else {
+            await fetchUserProfile(userData.user);
+          }
+        } else {
+          setUser(null);
+        }
+      } catch (e) {
+        console.error('Error retrieving initial session:', e);
+        // As a safety measure, clear potentially corrupt storage
+        try { clearSupabaseStorage(); } catch {}
+        setUser(null);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
 
     getInitialSession();
 
-    // Listen for auth changes
+    // Listen for auth changes (do not block UI on profile fetch)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         console.log('Auth state changed:', event, session?.user?.id);
         if (session?.user) {
-          await fetchUserProfile(session.user);
+          // Set basic user immediately to avoid spinner hang
+          const basicName = session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || session.user.email || '';
+          setUser({ id: session.user.id, email: session.user.email!, name: basicName });
+          setLoading(false);
+          // Fetch full profile in background (no await)
+          fetchUserProfile(session.user).catch(err => console.warn('Background profile fetch failed:', err));
         } else {
           console.log('No session, setting user to null');
           setUser(null);
+          setLoading(false);
         }
-        setLoading(false);
       }
     );
 
@@ -290,6 +329,22 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       // Normalize email
       const normalizedEmail = email.trim().toLowerCase();
 
+      // Guard: if a corrupt/expired session is present, clear it before login to avoid cache issues
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          const { data: userData, error: userErr } = await supabase.auth.getUser();
+          if (userErr || !userData?.user) {
+            console.warn('Clearing corrupt session before login');
+            await supabase.auth.signOut();
+            try { clearSupabaseStorage(); } catch {}
+          }
+        }
+      } catch (preLoginErr) {
+        console.warn('Pre-login session check failed, clearing storage as precaution');
+        try { clearSupabaseStorage(); } catch {}
+      }
+
       // Attempt login with Supabase
       const { data, error } = await supabase.auth.signInWithPassword({
         email: normalizedEmail,
@@ -298,6 +353,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       if (error) {
         console.error('Login error:', error);
+        // If login fails due to token issues, clear storage so the next attempt succeeds
+        if (
+          typeof error?.message === 'string' && (
+            error.message.toLowerCase().includes('refresh token') ||
+            error.message.toLowerCase().includes('invalid') ||
+            error.message.toLowerCase().includes('session')
+          )
+        ) {
+          try { clearSupabaseStorage(); } catch {}
+        }
         return { error };
       }
 
@@ -402,6 +467,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     try {
       const { error } = await supabase.auth.signOut();
       setUser(null);
+      // Proactively clear Supabase auth storage to avoid stale tokens across refreshes
+      try { clearSupabaseStorage(); } catch {}
       return { error };
     } catch (error) {
       return { error };
