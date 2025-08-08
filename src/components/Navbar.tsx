@@ -1,13 +1,19 @@
 import { useState } from 'react';
-import { Link, NavLink } from 'react-router-dom';
+import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { Menu, X, Car, LogOut, User } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const { user, logout } = useAuth();
+  const navigate = useNavigate();
 
   const closeMenu = () => setIsMenuOpen(false);
+
+  const handleLogout = async () => {
+    await logout();
+    navigate('/login');
+  };
 
   return (
     <header className="bg-white shadow-sm sticky top-0 z-50">
@@ -66,7 +72,7 @@ const Navbar = () => {
                   <span className="font-medium">{user?.name?.split(' ')[0] || user?.email?.split('@')[0] || 'User'}</span>
                 </div>
                 <button
-                  onClick={logout}
+                  onClick={handleLogout}
                   className="flex items-center text-gray-600 hover:text-primary-500"
                 >
                   <LogOut size={18} className="mr-1" />
@@ -93,90 +99,88 @@ const Navbar = () => {
             {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
           </button>
         </div>
+      </div>
 
-        {/* Mobile Navigation */}
-        {isMenuOpen && (
-          <div className="md:hidden mt-4 pb-2 fade-in">
-            <nav className="flex flex-col space-y-4">
-              <NavLink 
-                to="/" 
-                className={({isActive}) => 
+      {/* Mobile Navigation */}
+      {isMenuOpen && (
+        <div className="md:hidden bg-white shadow-lg absolute top-full left-0 w-full z-50">
+          <nav className="flex flex-col p-4 space-y-2">
+            <NavLink
+              to="/"
+              className={({ isActive }) =>
+                isActive ? "text-primary-500 font-medium" : "text-gray-600 hover:text-primary-500"
+              }
+              onClick={closeMenu}
+            >
+              Home
+            </NavLink>
+            <NavLink
+              to="/find-parking"
+              className={({ isActive }) =>
+                isActive ? "text-primary-500 font-medium" : "text-gray-600 hover:text-primary-500"
+              }
+              onClick={closeMenu}
+            >
+              Find Parking
+            </NavLink>
+            {user && (
+              <NavLink
+                to="/my-bookings"
+                className={({ isActive }) =>
                   isActive ? "text-primary-500 font-medium" : "text-gray-600 hover:text-primary-500"
                 }
                 onClick={closeMenu}
               >
-                Home
+                My Bookings
               </NavLink>
-              <NavLink 
-                to="/find-parking" 
-                className={({isActive}) => 
-                  isActive ? "text-primary-500 font-medium" : "text-gray-600 hover:text-primary-500"
-                }
-                onClick={closeMenu}
-              >
-                Find Parking
-              </NavLink>
-              {user && (
-                <NavLink 
-                  to="/my-bookings" 
-                  className={({isActive}) => 
-                    isActive ? "text-primary-500 font-medium" : "text-gray-600 hover:text-primary-500"
-                  }
+            )}
+            <NavLink
+              to="/contact"
+              className={({ isActive }) =>
+                isActive ? "text-primary-500 font-medium" : "text-gray-600 hover:text-primary-500"
+              }
+              onClick={closeMenu}
+            >
+              Contact
+            </NavLink>
+            {user ? (
+              <div className="pt-2 border-t border-gray-200 flex flex-col space-y-2">
+                <div className="flex items-center mb-2">
+                  <User size={18} className="mr-2 text-gray-600" />
+                  <span className="font-medium">{user?.name || user?.email?.split('@')[0] || 'User'}</span>
+                </div>
+                <button
+                  onClick={() => {
+                    handleLogout();
+                    closeMenu();
+                  }}
+                  className="flex items-center text-gray-600 hover:text-primary-500"
+                >
+                  <LogOut size={18} className="mr-2" />
+                  <span>Logout</span>
+                </button>
+              </div>
+            ) : (
+              <div className="pt-2 border-t border-gray-200 flex flex-col space-y-2">
+                <Link 
+                  to="/login" 
+                  className="btn btn-secondary"
                   onClick={closeMenu}
                 >
-                  My Bookings
-                </NavLink>
-              )}
-              <NavLink 
-                to="/contact" 
-                className={({isActive}) => 
-                  isActive ? "text-primary-500 font-medium" : "text-gray-600 hover:text-primary-500"
-                }
-                onClick={closeMenu}
-              >
-                Contact
-              </NavLink>
-              
-              {/* Mobile User Actions */}
-              {user ? (
-                <div className="pt-2 border-t border-gray-200">
-                  <div className="flex items-center mb-2">
-                    <User size={18} className="mr-2 text-gray-600" />
-                    <span className="font-medium">{user?.name || user?.email?.split('@')[0] || 'User'}</span>
-                  </div>
-                  <button
-                    onClick={() => {
-                      logout();
-                      closeMenu();
-                    }}
-                    className="flex items-center text-gray-600 hover:text-primary-500"
-                  >
-                    <LogOut size={18} className="mr-2" />
-                    <span>Logout</span>
-                  </button>
-                </div>
-              ) : (
-                <div className="pt-2 border-t border-gray-200 flex flex-col space-y-2">
-                  <Link 
-                    to="/login" 
-                    className="btn btn-secondary"
-                    onClick={closeMenu}
-                  >
-                    Login
-                  </Link>
-                  <Link 
-                    to="/register" 
-                    className="btn btn-primary"
-                    onClick={closeMenu}
-                  >
-                    Register
-                  </Link>
-                </div>
-              )}
-            </nav>
-          </div>
-        )}
-      </div>
+                  Login
+                </Link>
+                <Link 
+                  to="/register" 
+                  className="btn btn-primary"
+                  onClick={closeMenu}
+                >
+                  Register
+                </Link>
+              </div>
+            )}
+          </nav>
+        </div>
+      )}
     </header>
   );
 };

@@ -21,7 +21,7 @@ const LoginPage = () => {
     setLoading(true);
 
     try {
-      // Validate inputs client-side
+      // Basic validation
       if (!email.trim()) {
         throw new Error('Email is required');
       }
@@ -34,37 +34,14 @@ const LoginPage = () => {
       
       if (error) {
         console.error('Sign in error:', error);
-        // Provide more specific error messages
-        let errorMessage = 'Failed to sign in. Please check your credentials and try again.';
-        
-        if (error.message) {
-          errorMessage = error.message;
-        } else if (error.status === 400) {
-          errorMessage = 'Invalid email or password.';
-        } else if (error.status === 401) {
-          errorMessage = 'Invalid credentials. Please check your email and password.';
-        } else if (error.status === 422) {
-          errorMessage = 'Please check your email format and try again.';
-        } else if (error.code === 'auth/invalid-email') {
-          errorMessage = 'The email address is not valid.';
-        } else if (error.code === 'auth/user-disabled') {
-          errorMessage = 'This user account has been disabled.';
-        } else if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
-          errorMessage = 'Invalid email or password.';
-        }
-        
-        throw new Error(errorMessage);
+        throw new Error(error.message || 'Failed to sign in. Please check your credentials.');
       }
       
       console.log('Sign in successful, navigating to home');
       navigate('/');
-      return; // Add early return to prevent setLoading(false) after successful login
     } catch (err: any) {
       console.error('Login error:', err);
-      setError(
-        err.message || 
-        'Failed to sign in. Please check your credentials and try again.'
-      );
+      setError(err.message || 'Failed to sign in. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -141,9 +118,13 @@ const LoginPage = () => {
             </div>
 
             <div className="text-sm">
-              <a href="#" className="font-medium text-primary-500 hover:text-primary-400">
+              <button
+                type="button"
+                className="text-sm text-primary-500 hover:text-primary-400"
+                onClick={() => alert('Please contact support for password reset')}
+              >
                 Forgot your password?
-              </a>
+              </button>
             </div>
           </div>
 

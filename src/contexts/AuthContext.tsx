@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { User, Session } from '@supabase/supabase-js';
+import { User } from '@supabase/supabase-js';
 
 // Define types
 type AuthUser = {
@@ -51,6 +51,48 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     return () => subscription.unsubscribe();
   }, []);
+
+  // Helper function to create user profile
+  const createUserProfile = async (userId: string, email: string, fullName: string) => {
+    try {
+      console.log('Creating profile for user:', userId);
+      
+      const { error } = await supabase
+        .from('profiles')
+        .upsert({
+          id: userId,
+          email: email.toLowerCase(),
+          full_name: fullName,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        }, { onConflict: 'id' });
+        
+      if (error) {
+        console.error('Error creating profile:', error);
+        // Try insert as fallback
+        const { error: insertError } = await supabase
+          .from('profiles')
+          .insert({
+            id: userId,
+            email: email.toLowerCase(),
+            full_name: fullName,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          });
+          
+        if (insertError && !insertError.message?.includes('duplicate')) {
+          console.error('Error inserting profile:', insertError);
+          return { error: insertError };
+        }
+      }
+      
+      console.log('Profile created successfully');
+      return { error: null };
+    } catch (error) {
+      console.error('Exception creating profile:', error);
+      return { error };
+    }
+  };
 
   const fetchUserProfile = async (user: User) => {
     if (!user) {
@@ -240,88 +282,36 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     try {
       console.log('Attempting login for:', email);
 
-      // Validate inputs
+      // Basic validation
       if (!email || !password) {
-        console.error('Login error: Email or password is empty');
         return { error: { message: 'Email and password are required' } };
       }
 
-      // Check if Supabase environment variables are loaded
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-      
-      if (!supabaseUrl || !supabaseAnonKey) {
-        console.error('Login error: Supabase environment variables are missing');
-        return { error: { message: 'Authentication service configuration error. Please contact support.' } };
-      }
+      // Normalize email
+      const normalizedEmail = email.trim().toLowerCase();
 
-      console.log('Supabase URL:', supabaseUrl.substring(0, 15) + '...');
-      console.log('Supabase Key exists:', !!supabaseAnonKey);
-
+      // Attempt login with Supabase
       const { data, error } = await supabase.auth.signInWithPassword({
-        email: email.trim().toLowerCase(),
+        email: normalizedEmail,
         password,
       });
 
       if (error) {
         console.error('Login error:', error);
-        
-        // Provide more specific error messages
-        let errorMessage = error.message;
-        if (error.message?.includes('Invalid login credentials')) {
-          errorMessage = 'Invalid email or password. Please check your credentials and try again.';
-        } else if (error.message?.includes('Email not confirmed')) {
-          errorMessage = 'Please check your email and click the confirmation link before logging in.';
-        } else if (error.message?.includes('Too many requests')) {
-          errorMessage = 'Too many login attempts. Please wait a moment and try again.';
-        }
-        
-        return { error: { ...error, message: errorMessage } };
+        return { error };
       }
 
       console.log('Login successful for user:', data.user?.id);
-      console.log('User email confirmed:', data.user?.email_confirmed_at);
-      console.log('Session exists:', !!data.session);
 
+      // Fetch user profile after successful authentication
       if (data.user) {
-        // Check if user email is confirmed
-        if (!data.user.email_confirmed_at && !data.user.confirmed_at) {
-          console.warn('User email not confirmed');
-          return { error: { message: 'Please check your email and click the confirmation link before logging in.' } };
-        }
-        
-        const { error: profileError } = await fetchUserProfile(data.user);
-        if (profileError) {
-          console.warn('Profile fetch/creation failed, attempting to create profile during login');
-          
-          // Try to create a profile for this user as a fallback
-          try {
-            const { error: createError } = await supabase
-              .from('profiles')
-              .upsert({
-                id: data.user.id,
-                email: data.user.email!.toLowerCase(),
-                full_name: data.user.user_metadata?.full_name || data.user.email?.split('@')[0] || '',
-                created_at: new Date().toISOString(),
-                updated_at: new Date().toISOString()
-              }, { onConflict: 'id' });
-              
-            if (createError) {
-              console.error('Error creating profile during login:', createError);
-            } else {
-              console.log('Profile created successfully during login');
-              await fetchUserProfile(data.user);
-            }
-          } catch (createErr) {
-            console.error('Exception creating profile during login:', createErr);
-          }
-        }
+        await fetchUserProfile(data.user);
       }
 
       return { error: null };
     } catch (error) {
       console.error('Login exception:', error);
-      return { error: { message: 'An unexpected error occurred. Please try again.' } };
+      return { error: { message: 'Login failed. Please try again.' } };
     }
   };
 
@@ -337,32 +327,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         console.error('Registration error: Missing required fields');
         return { error: { message: 'Name, email, and password are required.' } };
       }
-      
-      // Check if Supabase environment variables are loaded
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-      
-      if (!supabaseUrl || !supabaseAnonKey) {
-        console.error('Registration error: Supabase environment variables are missing');
-        return { error: { message: 'Authentication service configuration error. Please contact support.' } };
-      }
 
-      // First check if user already exists
-      const { data: existingUser, error: checkError } = await supabase.auth.signInWithPassword({
-        email: normalizedEmail,
-        password,
-      });
-      
-      if (existingUser?.user) {
-        console.log('User already exists, attempting to log in');
-        const { error: profileError } = await fetchUserProfile(existingUser.user);
-        if (profileError) {
-          console.warn('Profile fetch failed during login of existing user:', profileError);
-        }
-        return { error: null };
-      }
-
-      // Create the user account
+      // Create the user account with email confirmation disabled for immediate login
       const { data, error } = await supabase.auth.signUp({
         email: normalizedEmail,
         password,
@@ -376,129 +342,56 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (error) {
         console.error('Signup error:', error);
         
-        // Provide more specific error messages
-        let errorMessage = error.message;
-        if (error.message?.includes('already registered')) {
-          errorMessage = 'This email is already registered. Please try logging in instead.';
+        // Handle user already exists case
+        if (error.message?.includes('already registered') || error.message?.includes('already been registered')) {
+          console.log('User already exists, attempting to sign them in...');
+          // Try to sign in the existing user
+          const { data: loginData, error: loginError } = await supabase.auth.signInWithPassword({
+            email: normalizedEmail,
+            password,
+          });
+          
+          if (loginError) {
+            return { error: { message: 'This email is already registered. Please use the correct password to log in.' } };
+          }
+          
+          if (loginData.user) {
+            await fetchUserProfile(loginData.user);
+            return { error: null };
+          }
         }
         
-        return { error: { ...error, message: errorMessage } };
+        return { error: { message: error.message || 'Registration failed. Please try again.' } };
       }
 
-      // Defensive: get user from data.session if not present in data.user
-      const userObj = data.user || data.session?.user;
-      if (!userObj) {
-        console.error('No user object returned after signUp');
-        return { error: { message: 'No user object returned after signUp' } };
-      }
-
-      console.log('User created successfully:', userObj.id);
-      let profileCreated = false;
-
-      try {
-        // Wait for the user to be fully committed to the database
-        console.log('Waiting for user to be committed...');
-        await new Promise(resolve => setTimeout(resolve, 2000));
-
-        // Try upsert instead of insert to handle potential race conditions
-        console.log('Creating profile with upsert...');
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .upsert(
-            {
-              id: userObj.id,
-              email: userObj.email!.toLowerCase(),
-              full_name: name,
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString()
-            },
-            { onConflict: 'id' }
-          );
-          
-        console.log('Profile creation result:', { profileError });
-
-        if (profileError) {
-          // If permission error, try direct insert
-          if (profileError.code === 'PGRST301' || profileError.message?.includes('permission denied')) {
-            console.warn('Permission error on upsert, trying direct insert...');
-            
-            const { error: insertError } = await supabase
-              .from('profiles')
-              .insert([
-                {
-                  id: userObj.id,
-                  email: userObj.email!.toLowerCase(),
-                  full_name: name,
-                  created_at: new Date().toISOString(),
-                  updated_at: new Date().toISOString()
-                },
-              ]);
-              
-            if (insertError) {
-              // If duplicate key error, ignore (profile already exists)
-              if (insertError.code === '23505' || insertError.message?.includes('duplicate')) {
-                console.warn('Profile already exists, continuing.');
-                // Proceed to fetch profile
-                const { error: fetchError } = await fetchUserProfile(userObj);
-                if (!fetchError) {
-                  profileCreated = true;
-                  console.log('Successfully fetched existing profile');
-                }
-              } else {
-                // Show error and stop registration
-                console.error('Error creating profile:', insertError);
-                return { error: { message: 'Profile creation failed. Please contact support or try again later.' } };
-              }
-            } else {
-              console.log('Profile created successfully via insert');
-              // Only fetch profile if creation succeeded
-              const { error: fetchError } = await fetchUserProfile(userObj);
-              if (!fetchError) {
-                profileCreated = true;
-              }
-            }
-          } else if (profileError.code === '23505' || profileError.message?.includes('duplicate')) {
-            console.warn('Profile already exists, continuing.');
-            // Proceed to fetch profile
-            const { error: fetchError } = await fetchUserProfile(userObj);
-            if (!fetchError) {
-              profileCreated = true;
-              console.log('Successfully fetched existing profile');
-            }
-          } else {
-            // Show error and stop registration
-            console.error('Error creating profile:', profileError);
-            return { error: { message: 'Profile creation failed. Please contact support or try again later.' } };
-          }
-        } else {
-          console.log('Profile created successfully via upsert');
-          // Only fetch profile if creation succeeded
-          const { error: fetchError } = await fetchUserProfile(userObj);
-          if (!fetchError) {
-            profileCreated = true;
-          }
+      console.log('Registration successful:', data);
+      
+      // Handle the case where user is created but needs email confirmation
+      if (data.user && !data.session) {
+        console.log('User created but needs email confirmation');
+        // For development, we'll create the profile anyway
+        if (data.user?.id) {
+          await createUserProfile(data.user.id, normalizedEmail, normalizedName);
         }
-
-        // Set the user state immediately after profile creation
-        setUser({
-          id: userObj.id,
-          email: userObj.email!,
-          name: name,
-        });
-      } catch (profileError) {
-        // Show error and stop registration
-        console.error('Profile creation failed:', profileError);
-        return { error: { message: 'Profile creation failed. Please contact support or try again later.' } };
+        return { error: { message: 'Registration successful! Please check your email to confirm your account before logging in.' } };
       }
-
-      // Final attempt to fetch/create profile if all previous attempts failed
-      if (!profileCreated) {
-        console.log('All profile creation attempts failed, trying one last fetchUserProfile...');
-        await fetchUserProfile(userObj);
+      
+      // Handle successful registration with immediate session
+      if (data.user && data.session) {
+        console.log('User created and logged in:', data.user.id);
+        
+        // Create profile for the new user
+        await createUserProfile(data.user.id, normalizedEmail, normalizedName);
+        
+        // Fetch the user profile to set the user state
+        await fetchUserProfile(data.user);
+        
+        return { error: null };
       }
+      
+      return { error: { message: 'Registration completed but login failed. Please try logging in manually.' } };
 
-      console.log('Registration completed successfully');
-      return { error: null };
+
     } catch (error) {
       console.error('Registration error:', error);
       return { error: { message: 'Registration failed. Please try again later.' } };
