@@ -1,20 +1,30 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+// Read and sanitize envs to avoid invisible whitespace issues in hosting providers
+const supabaseUrl = (import.meta.env.VITE_SUPABASE_URL || '').trim();
+const supabaseAnonKey = (import.meta.env.VITE_SUPABASE_ANON_KEY || '').trim();
 
+// Basic sanity checks to help surface prod misconfig quickly
 if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Missing Supabase environment variables. Please check your .env file.');
+  // Throw a descriptive error in development; log in production
+  const msg = '[Supabase] Missing envs: ensure VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY are set.';
+  if (import.meta.env.DEV) throw new Error(msg);
+  // eslint-disable-next-line no-console
+  console.error(msg, { urlPresent: !!supabaseUrl, keyPresent: !!supabaseAnonKey });
+}
+if (!/^https:\/\/[a-zA-Z0-9-]+\.supabase\.co$/.test(supabaseUrl)) {
+  // eslint-disable-next-line no-console
+  console.error('[Supabase] VITE_SUPABASE_URL looks invalid:', supabaseUrl);
 }
 
 // Use a stable, project-scoped storage key to avoid collisions with stale tokens
 // across different builds/environments. This helps prevent the need to clear
 // the entire browser cache after refreshes.
 // Bump the storage key version to invalidate stale sessions once across all clients
-let storageKey = 'pe_supabase_auth_v2';
+let storageKey = 'pe_supabase_auth_v3';
 try {
   const host = new URL(supabaseUrl).host.split('.').join('_');
-  storageKey = `pe_${host}_auth_v2`;
+  storageKey = `pe_${host}_auth_v3`;
 } catch {
   // fallback to default if URL parsing fails
 }
