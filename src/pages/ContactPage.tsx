@@ -1,4 +1,5 @@
 import { useState, FormEvent } from 'react';
+import { supabase } from '../lib/supabase'; // <-- Add this import
 import { Mail, Phone, MapPin, MessageSquare, User, AtSign, Send } from 'lucide-react';
 
 const ContactPage = () => {
@@ -8,24 +9,42 @@ const ContactPage = () => {
   const [message, setMessage] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
-  
+  const [error, setError] = useState<string | null>(null); // <-- Add error state
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
-    
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
+    setError(null);
+
+    // Store the contact message in Supabase
+    const { error: dbError } = await supabase
+      .from('contact_messages') // <-- Make sure this table exists in your Supabase DB
+      .insert([
+        {
+          name,
+          email,
+          subject,
+          message,
+          created_at: new Date().toISOString(),
+        },
+      ]);
+
+    if (dbError) {
+      setError('Failed to send message. Please try again later.');
+      setIsSubmitting(false);
+      return;
+    }
+
     setIsSubmitted(true);
     setIsSubmitting(false);
-    
+
     // Reset form
     setName('');
     setEmail('');
     setSubject('');
     setMessage('');
   };
-  
+
   return (
     <div className="bg-gray-50 min-h-screen">
       <div className="container mx-auto px-4 py-12">
@@ -36,13 +55,13 @@ const ContactPage = () => {
               Have questions or need assistance? Get in touch with our team and we'll be happy to help.
             </p>
           </div>
-          
+
           <div className="bg-white rounded-lg shadow-md overflow-hidden">
             <div className="grid grid-cols-1 md:grid-cols-3">
               {/* Contact Information */}
               <div className="bg-primary-600 text-white p-8">
                 <h2 className="text-2xl font-semibold mb-6">Contact Information</h2>
-                
+
                 <div className="space-y-6">
                   <div className="flex items-start">
                     <div className="mt-1">
@@ -53,7 +72,7 @@ const ContactPage = () => {
                       <p className="mt-1 text-primary-100">+91 8897425370</p>
                     </div>
                   </div>
-                  
+
                   <div className="flex items-start">
                     <div className="mt-1">
                       <Mail size={20} className="text-primary-200" />
@@ -63,7 +82,7 @@ const ContactPage = () => {
                       <p className="mt-1 text-primary-100">adityasaichinmay@gmail.com</p>
                     </div>
                   </div>
-                  
+
                   <div className="flex items-start">
                     <div className="mt-1">
                       <MapPin size={20} className="text-primary-200" />
@@ -78,7 +97,7 @@ const ContactPage = () => {
                     </div>
                   </div>
                 </div>
-                
+
                 <div className="mt-12">
                   <h3 className="text-lg font-medium mb-4">Follow Us</h3>
                   <div className="flex space-x-4">
@@ -100,11 +119,17 @@ const ContactPage = () => {
                   </div>
                 </div>
               </div>
-              
+
               {/* Contact Form */}
               <div className="col-span-2 p-8">
                 <h2 className="text-2xl font-semibold mb-6">Send us a message</h2>
-                
+
+                {error && (
+                  <div className="bg-red-100 text-red-700 p-3 rounded mb-4">
+                    {error}
+                  </div>
+                )}
+
                 {isSubmitted ? (
                   <div className="bg-green-50 border border-green-200 rounded-md p-6 text-center">
                     <div className="flex justify-center mb-4">
@@ -118,7 +143,7 @@ const ContactPage = () => {
                     <p className="text-green-700">
                       We've received your inquiry and will get back to you as soon as possible.
                     </p>
-                    <button 
+                    <button
                       className="mt-4 btn btn-primary"
                       onClick={() => setIsSubmitted(false)}
                     >
@@ -144,7 +169,7 @@ const ContactPage = () => {
                           />
                         </div>
                       </div>
-                      
+
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                           Email Address
@@ -162,7 +187,7 @@ const ContactPage = () => {
                         </div>
                       </div>
                     </div>
-                    
+
                     <div className="mb-6">
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         Subject
@@ -179,7 +204,7 @@ const ContactPage = () => {
                         />
                       </div>
                     </div>
-                    
+
                     <div className="mb-6">
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         Message
@@ -193,7 +218,7 @@ const ContactPage = () => {
                         required
                       ></textarea>
                     </div>
-                    
+
                     <button
                       type="submit"
                       className="btn btn-primary w-full flex justify-center items-center"
@@ -219,11 +244,11 @@ const ContactPage = () => {
               </div>
             </div>
           </div>
-          
+
           {/* FAQ Section */}
           <div className="mt-16">
             <h2 className="text-2xl font-bold text-center mb-8">Frequently Asked Questions</h2>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="bg-white rounded-lg shadow-md p-6">
                 <h3 className="text-lg font-semibold mb-3">How do I cancel a booking?</h3>
@@ -231,21 +256,21 @@ const ContactPage = () => {
                   You can cancel a booking by going to "My Bookings" page, finding the reservation you want to cancel, and clicking the "Cancel" button. Cancellations made at least 1 hour before the booking time will receive a full refund.
                 </p>
               </div>
-              
+
               <div className="bg-white rounded-lg shadow-md p-6">
                 <h3 className="text-lg font-semibold mb-3">What if I arrive late to my booking?</h3>
                 <p className="text-gray-600">
                   We have a 15-minute grace period for all bookings. If you arrive later than that, the spot may be given to someone else, and you may be charged for the booking.
                 </p>
               </div>
-              
+
               <div className="bg-white rounded-lg shadow-md p-6">
                 <h3 className="text-lg font-semibold mb-3">Can I extend my parking duration?</h3>
                 <p className="text-gray-600">
                   Yes, you can extend your parking duration if the spot is still available after your booking. Go to "My Bookings" and click on "Modify" to extend your time.
                 </p>
               </div>
-              
+
               <div className="bg-white rounded-lg shadow-md p-6">
                 <h3 className="text-lg font-semibold mb-3">Is my payment information secure?</h3>
                 <p className="text-gray-600">
